@@ -9,11 +9,14 @@ KVER="$1"
 DISTRO="unknown"
 [ -f /etc/ps5-distro ] && DISTRO="$(cat /etc/ps5-distro)"
 
-cp "/boot/vmlinuz-$KVER"    "$BOOT_PART/bzImage"
-cp "/boot/initrd.img-$KVER" "$BOOT_PART/initrd-${DISTRO}.img"
+mv "$BOOT_PART/bzImage"              "$BOOT_PART/bzImage.old"
+mv "$BOOT_PART/initrd-${DISTRO}.img" "$BOOT_PART/initrd-${DISTRO}.img.old"
+cp "/boot/vmlinuz-$KVER"             "$BOOT_PART/bzImage"
+cp "/boot/initrd.img-$KVER"          "$BOOT_PART/initrd-${DISTRO}.img"
 
 # Ubuntu 26.04 is default boot — also update the generic initrd.img
 if [ "$DISTRO" = "ubuntu2604" ]; then
+    mv "$BOOT_PART/initrd.img"  "$BOOT_PART/initrd.img.old"
     cp "/boot/initrd.img-$KVER" "$BOOT_PART/initrd.img"
 fi
 
