@@ -1,0 +1,33 @@
+name: Move release tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: 'Commit SHA to point `latest` at (defaults to the selected ref)'
+        type: string
+        default: ''
+
+jobs:
+  move-tag:
+    runs-on: self-hosted
+    permissions:
+      contents: write
+    steps:
+      - name: Move latest tag to commit
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const ref = 'tags/latest';
+            const sha = '${{ inputs.commit }}'.trim() || context.sha;
+            try {
+              await github.rest.git.updateRef({
+                ...context.repo, ref, sha, force: true,
+              });
+            } catch (e) {
+              if (e.status !== 422) throw e;
+              await github.rest.git.createRef({
+                ...context.repo, ref: 'refs/tags/latest', sha,
+              });
+            }
+            core.info(`latest -> ${sha}`);
