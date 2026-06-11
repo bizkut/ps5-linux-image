@@ -116,30 +116,30 @@ jobs:
           # Create .PKGINFO
           BUILDDATE=$(date -u +%s)
           INSTALLED_SIZE=$(du -sb "$STAGING" | awk '{print $1}')
-          cat > "$STAGING/.PKGINFO" << EOF
-pkgname = $PKGNAME
-pkgbase = $PKGNAME
-pkgver = $VERSION
-pkgrel = $REL
-pkgdesc = PS5 Linux CachyOS BORE kernel $KVER (image + modules + headers)
-url = https://github.com/bizkut/ps5-linux-image
-builddate = $BUILDDATE
-packager = ps5-linux
-size = $INSTALLED_SIZE
-arch = x86_64
-license = GPL-2.0-only
-provides = linux=$VERSION
-provides = linux-headers=$VERSION
-provides = linux-api-headers=$VERSION
-conflict = linux
-conflict = linux-headers
-conflict = linux-api-headers
-conflict = linux-custom
-replaces = linux
-replaces = linux-headers
-replaces = linux-api-headers
-replaces = linux-custom
-EOF
+          {
+            echo "pkgname = $PKGNAME"
+            echo "pkgbase = $PKGNAME"
+            echo "pkgver = $VERSION"
+            echo "pkgrel = $REL"
+            echo "pkgdesc = PS5 Linux CachyOS BORE kernel $KVER (image + modules + headers)"
+            echo "url = https://github.com/bizkut/ps5-linux-image"
+            echo "builddate = $BUILDDATE"
+            echo "packager = ps5-linux"
+            echo "size = $INSTALLED_SIZE"
+            echo "arch = x86_64"
+            echo "license = GPL-2.0-only"
+            echo "provides = linux=$VERSION"
+            echo "provides = linux-headers=$VERSION"
+            echo "provides = linux-api-headers=$VERSION"
+            echo "conflict = linux"
+            echo "conflict = linux-headers"
+            echo "conflict = linux-api-headers"
+            echo "conflict = linux-custom"
+            echo "replaces = linux"
+            echo "replaces = linux-headers"
+            echo "replaces = linux-api-headers"
+            echo "replaces = linux-custom"
+          } > "$STAGING/.PKGINFO"
 
           # Create .MTREE
           cd "$STAGING"
