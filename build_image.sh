@@ -9,21 +9,31 @@ KERNEL_SRC=""
 CLEAN=false
 IMG_SIZE=12000
 KERNEL_ONLY=false
-PATCHES_REF="v1.3"
+PATCHES_REF="main"
+KERNEL_PROFILE="ps5-stable"
+KERNEL_PROFILE_DRY_RUN=false
+WORKSPACE_ROOT="${PS5_LINUX_WORKSPACE:-$SCRIPT_DIR/work}"
 
 MULTI_DISTROS="ubuntu2604 arch cachyos"
+
+if [ ! -d "$WORKSPACE_ROOT" ]; then
+    mkdir -p "$WORKSPACE_ROOT"
+fi
 
 usage() {
     echo "Usage: $0 [--distro <distro>] [--kernel <path>] [--img-size <MB>] [--clean]"
     echo ""
     echo "Options:"
     echo "  --distro     Distribution to build: ubuntu2604, arch, cachyos, kali, all (default: ubuntu2604)"
-    echo "  --kernel     Path to kernel source directory (default: auto-clone to work/linux/)"
+    echo "  --kernel     Path to kernel source directory (default: <workspace>/linux)"
+    echo "  --kernel-profile  Kernel profile: ps5-stable, ps5-cachyos-bore (default: ps5-stable)"
+    echo "  --kernel-profile-dry-run  Resolve kernel profile metadata and exit"
     echo "  --img-size   Disk image size in MB (default: 12000, 32000 for --distro all, 98304 for kali)"
     echo "  --clean      Remove all cached build artifacts and start from scratch"
     echo "  --clean-only Remove all cached build artifacts and exit"
     echo "  --kernel-only  Build and package the kernel only, then exit"
-    echo "  --patches-ref  Branch, tag, or commit SHA for patches (default: v1.2)"
+    echo "  --patches-ref  Branch, tag, or commit SHA for patches (default: main)"
+    echo "  --workspace      Use custom case-sensitive workspace root for kernel sources/out"
     exit 1
 }
 
@@ -31,6 +41,9 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --distro)    DISTRO="$2";          shift 2 ;;
         --kernel)    KERNEL_SRC="$2";      shift 2 ;;
+        --kernel-profile) [ -n "$2" ] && KERNEL_PROFILE="$2"; shift 2 ;;
+        --kernel-profile-dry-run) KERNEL_PROFILE_DRY_RUN=true; shift ;;
+        --workspace) WORKSPACE_ROOT="$2"; shift 2 ;;
         --img-size)  IMG_SIZE="$2";        shift 2 ;;
         --clean)     CLEAN=true;           shift ;;
         --clean-only) CLEAN=true; CLEAN_EXIT=true; shift ;;
@@ -41,23 +54,39 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-LINUX_REPO="https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git"
-LINUX_DEFAULT_DIR="$SCRIPT_DIR/work/linux"
+PROFILE_FILE="$SCRIPT_DIR/kernel-profiles/$KERNEL_PROFILE.env"
+if [ ! -f "$PROFILE_FILE" ]; then
+    echo "Unknown kernel profile: $KERNEL_PROFILE" >&2
+    echo "Expected profile file: $PROFILE_FILE" >&2
+    exit 2
+fi
+. "$PROFILE_FILE"
 
-PATCHES_REPO="https://github.com/ps5-linux/ps5-linux-patches.git"
-PATCHES_DIR="$SCRIPT_DIR/work/ps5-linux-patches"
+KERNEL_BASE="${KERNEL_BASE:-stable}"
+KERNEL_PACKAGE_NAME="${KERNEL_PACKAGE_NAME:-linux-ps5}"
+KERNEL_LOCALVERSION="${KERNEL_LOCALVERSION:-}"
+
+LINUX_REPO="https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git"
+LINUX_DEFAULT_DIR="$WORKSPACE_ROOT/linux"
+
+PATCHES_REPO="${PATCHES_REPO:-https://github.com/bizkut/ps5-linux-patches.git}"
+PATCHES_DIR="$WORKSPACE_ROOT/ps5-linux-patches"
 
 if [ -z "$KERNEL_SRC" ]; then
     KERNEL_SRC="$LINUX_DEFAULT_DIR"
 fi
 
-KERNEL_OUT="$SCRIPT_DIR/linux-bin"
+KERNEL_OUT="$WORKSPACE_ROOT/linux-bin"
 OUTPUT_DIR="$SCRIPT_DIR/output"
-CHROOT_DIR="$SCRIPT_DIR/work/chroot"
-CACHE_DIR="$SCRIPT_DIR/work/cache"
+CHROOT_DIR="$WORKSPACE_ROOT/chroot"
+CACHE_DIR="$WORKSPACE_ROOT/cache"
 CCACHE_DIR="${CCACHE_DIR:-$SCRIPT_DIR/ccache}"
 LOG_FILE="$SCRIPT_DIR/build.log"
 DOCKER_NAME="ps5-build-$$"
+if [ "$KERNEL_OUT" != "$SCRIPT_DIR/linux-bin" ]; then
+    rm -f "$SCRIPT_DIR/linux-bin"
+    ln -s "$KERNEL_OUT" "$SCRIPT_DIR/linux-bin"
+fi
 
 
 
@@ -70,6 +99,20 @@ fi
 
 if [ -z "$FORMAT" ]; then
     case "$DISTRO" in arch|cachyos) FORMAT="arch" ;; all) FORMAT="all" ;; *) FORMAT="deb" ;; esac
+fi
+
+if [ "$KERNEL_PROFILE_DRY_RUN" = true ]; then
+    if [ "$KERNEL_BASE" = "cachyos" ]; then
+        CACHYOS_WORKDIR="$WORKSPACE_ROOT/upstreams" \
+            "$SCRIPT_DIR/scripts/kernel-profile-lib.sh" cachyos-sync "$PROFILE_FILE"
+        CACHYOS_WORKDIR="$WORKSPACE_ROOT/upstreams" \
+        "$SCRIPT_DIR/scripts/kernel-profile-lib.sh" cachyos-summary "$PROFILE_FILE"
+    else
+        echo "Kernel profile: $KERNEL_PROFILE"
+        echo "Kernel base:    $KERNEL_BASE"
+        echo "Package name:   $KERNEL_PACKAGE_NAME"
+    fi
+    exit 0
 fi
 
 KERNEL_BUILDER_PLATFORM="linux/amd64"
@@ -93,7 +136,9 @@ trap cleanup INT TERM EXIT
 # --- Clean ---
 if [ "$CLEAN" = true ]; then
     echo "Cleaning all build artifacts..."
-    for dir in "$SCRIPT_DIR/work" "$KERNEL_OUT" "$SCRIPT_DIR/cache" "$OUTPUT_DIR"; do
+    for dir in "$WORKSPACE_ROOT/linux" "$WORKSPACE_ROOT/ps5-linux-patches" \
+        "$WORKSPACE_ROOT/upstreams" "$WORKSPACE_ROOT/linux-bin" \
+        "$WORKSPACE_ROOT/chroot" "$WORKSPACE_ROOT/cache" "$OUTPUT_DIR"; do
         [ -d "$dir" ] && docker run --rm \
             -v "$(dirname "$dir")":/parent \
             alpine rm -rf "/parent/$(basename "$dir")"
@@ -117,7 +162,7 @@ esac
 if [ "$DISTRO" = "all" ]; then
     SKIP_CHROOT=true
     for d in $MULTI_DISTROS; do
-        [ -d "$SCRIPT_DIR/work/chroot-$d/bin" ] || SKIP_CHROOT=false
+        [ -d "$WORKSPACE_ROOT/chroot-$d/bin" ] || SKIP_CHROOT=false
     done
 else
     [ -d "$CHROOT_DIR/bin" ] && SKIP_CHROOT=true
@@ -135,8 +180,11 @@ else
     [ "$DISTRO" = "all" ] && echo "                ($MULTI_DISTROS)"
     echo "  Image size:   ${IMG_SIZE}MB"
 fi
+echo "  Kernel profile: $KERNEL_PROFILE"
+echo "  Kernel base:    $KERNEL_BASE"
+echo "  Kernel package: $KERNEL_PACKAGE_NAME"
 if [ -f "$PATCHES_DIR/.config" ]; then
-    LINUX_BRANCH="v$(grep -m1 "^# Linux/" "$PATCHES_DIR/.config" | grep -oP '\d+\.\d+(\.\d+)?')"
+    LINUX_BRANCH="v$(sed -nE 's/^# Linux\/[^ ]+ ([0-9]+(\.[0-9]+){1,2}).*/\1/p' "$PATCHES_DIR/.config" | head -1)"
     echo "  Kernel:       $LINUX_BRANCH"
 else
     echo "  Kernel:       (will fetch)"
@@ -200,7 +248,7 @@ run_stage() {
         if (( spin_i % 10 == 0 )); then
             local new
             new=$(tail -n +$((log_start + 1)) "$LOG_FILE" 2>/dev/null \
-                | grep -oP '(?<=^=== ).*(?= ===$)' | tail -1)
+                | sed -nE 's/^=== (.*) ===$/\1/p' | tail -1)
             [ -n "$new" ] && status_msg="$new"
         fi
         printf "\r  %s %-60s" "${SPIN_CHARS:spin_i%${#SPIN_CHARS}:1}" "$status_msg"
@@ -228,7 +276,7 @@ run_stage() {
 mkdir -p "$KERNEL_OUT" "$OUTPUT_DIR" "$CHROOT_DIR" "$CACHE_DIR" "$CCACHE_DIR"
 if [ "$DISTRO" = "all" ]; then
     for d in $MULTI_DISTROS; do
-        mkdir -p "$SCRIPT_DIR/work/chroot-$d"
+        mkdir -p "$WORKSPACE_ROOT/chroot-$d"
     done
 fi
 
@@ -254,22 +302,30 @@ else
                 -v "$(dirname "$dir")":/parent \
                 alpine rm -rf "/parent/$(basename "$dir")"
         done
-        LINUX_BRANCH="v$(grep -m1 "^# Linux/" "$PATCHES_DIR/.config" | grep -oP '\d+\.\d+(\.\d+)?')"
 
-        run_stage "Clone kernel $LINUX_BRANCH" \
-            git clone --branch "$LINUX_BRANCH" --depth 1 "$LINUX_REPO" "$LINUX_TMP_DIR"
+        if [ "$KERNEL_BASE" = "cachyos" ]; then
+            run_stage "Prepare CachyOS kernel source" \
+                WORKSPACE_ROOT="$WORKSPACE_ROOT" \
+                CACHYOS_WORKDIR="$WORKSPACE_ROOT/upstreams" \
+                "$SCRIPT_DIR/scripts/prepare-cachyos-kernel.sh" "$PROFILE_FILE" "$LINUX_TMP_DIR" "$PATCHES_DIR"
+        else
+            LINUX_BRANCH="v$(sed -nE 's/^# Linux\/[^ ]+ ([0-9]+(\.[0-9]+){1,2}).*/\1/p' "$PATCHES_DIR/.config" | head -1)"
 
-        run_stage "Apply patches" bash -c '
-            set -e; shopt -s nullglob
-            patches=("'"$PATCHES_DIR"'"/*.patch)
-            [ ${#patches[@]} -eq 0 ] && { echo "No .patch files found in '"$PATCHES_DIR"'"; exit 1; }
-            for p in "${patches[@]}"; do
-                echo "Applying $p"
-                git -C "'"$LINUX_TMP_DIR"'" apply --exclude=Makefile "$p"
-            done'
+            run_stage "Clone kernel $LINUX_BRANCH" \
+                git clone --branch "$LINUX_BRANCH" --depth 1 "$LINUX_REPO" "$LINUX_TMP_DIR"
 
-        run_stage "Copy kernel config" \
-            cp "$PATCHES_DIR/.config" "$LINUX_TMP_DIR/.config"
+            run_stage "Apply patches" bash -c '
+                set -e; shopt -s nullglob
+                patches=("'"$PATCHES_DIR"'"/*.patch)
+                [ ${#patches[@]} -eq 0 ] && { echo "No .patch files found in '"$PATCHES_DIR"'"; exit 1; }
+                for p in "${patches[@]}"; do
+                    echo "Applying $p"
+                    git -C "'"$LINUX_TMP_DIR"'" apply --exclude=Makefile "$p"
+                done'
+
+            run_stage "Copy kernel config" \
+                cp "$PATCHES_DIR/.config" "$LINUX_TMP_DIR/.config"
+        fi
 
         mv "$LINUX_TMP_DIR" "$LINUX_DEFAULT_DIR"
         KERNEL_SRC="$LINUX_DEFAULT_DIR"
@@ -287,6 +343,9 @@ else
 
     run_stage "Compile kernel" \
         docker run --rm --platform "$KERNEL_BUILDER_PLATFORM" --name "$DOCKER_NAME" \
+            --ulimit nofile=1048576:1048576 \
+            -e JOBS="${JOBS:-}" \
+            -e KERNEL_PACKAGE_NAME="${KERNEL_PACKAGE_NAME}" \
             -v "$KERNEL_SRC":/src \
             -v "$KERNEL_OUT":/out \
             -v "$CCACHE_DIR":/ccache \
@@ -297,6 +356,9 @@ else
     case "$FORMAT" in deb|all)
         run_stage "Package kernel (.deb)" \
             docker run --rm --platform "$KERNEL_BUILDER_PLATFORM" --name "$DOCKER_NAME" \
+                --ulimit nofile=1048576:1048576 \
+                -e JOBS="${JOBS:-}" \
+                -e KERNEL_PACKAGE_NAME="${KERNEL_PACKAGE_NAME}" \
                 -v "$KERNEL_SRC":/src \
                 -v "$KERNEL_OUT":/out \
                 -v "$CCACHE_DIR":/ccache \
@@ -310,6 +372,7 @@ else
                 -f "$SCRIPT_DIR/docker/kernel-builder-arch/Dockerfile" "$SCRIPT_DIR"
         run_stage "Package kernel (.pkg.tar.zst)" \
             docker run --rm --name "$DOCKER_NAME" \
+                -e KERNEL_PACKAGE_NAME="${KERNEL_PACKAGE_NAME}" \
                 -v "$KERNEL_OUT":/out \
                 ps5-kernel-packager-arch
     esac
@@ -339,7 +402,7 @@ if [ "$DISTRO" = "all" ]; then
         -e "DISTROS=$MULTI_DISTROS"
     )
     for d in $MULTI_DISTROS; do
-        DOCKER_ARGS+=(-v "$SCRIPT_DIR/work/chroot-$d:/build/chroot-$d")
+        DOCKER_ARGS+=(-v "$WORKSPACE_ROOT/chroot-$d:/build/chroot-$d")
     done
     DOCKER_ARGS+=(ps5-image-builder)
 

@@ -6,8 +6,9 @@ set -e
 # Clean host-built tool artifacts that may reference wrong include paths
 make -C tools/objtool clean 2>/dev/null || true
 
+JOBS="${JOBS:-$(nproc)}"
 make olddefconfig
-make -j"$(nproc)" bzImage modules
+make -j"$JOBS" bzImage modules
 
 # Stage all artifacts so downstream packagers don't need to run make
 echo "=== Staging build artifacts ==="

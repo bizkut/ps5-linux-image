@@ -1,0 +1,107 @@
+name: Build PS5 CachyOS BORE Kernel
+run-name: Build PS5 CachyOS BORE Kernel
+
+on:
+  workflow_dispatch:
+    inputs:
+      patches_ref:
+        description: "ps5-linux-patches ref (branch, tag, or SHA)"
+        default: "main"
+      workspace:
+        description: "Case-sensitive build workspace (overrides PS5_LINUX_WORKSPACE)"
+        default: ""
+        type: string
+  schedule:
+    - cron: "0 2 * * 1"
+
+jobs:
+  build:
+    runs-on: self-hosted
+    timeout-minutes: 720
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout image builder
+        uses: actions/checkout@v6
+
+      - name: Build CachyOS BORE kernel
+        id: build
+        run: |
+          WORKSPACE="${{ github.event.inputs.workspace }}"
+          PATCH_REF="main"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            [ -n "${{ github.event.inputs.patches_ref }}" ] && PATCH_REF="${{ github.event.inputs.patches_ref }}"
+          fi
+          if [ -z "${WORKSPACE:-}" ] && [ -n "${PS5_LINUX_WORKSPACE:-}" ]; then
+            WORKSPACE="$PS5_LINUX_WORKSPACE"
+          fi
+          if [ -z "${WORKSPACE:-}" ]; then
+            WORKSPACE="/Volumes/ps5-linux-kernel"
+          fi
+
+          export PS5_LINUX_WORKSPACE="$WORKSPACE"
+          bash build_image.sh \
+            --distro cachyos \
+            --kernel-profile ps5-cachyos-bore \
+            --kernel-only \
+            --workspace "$WORKSPACE" \
+            --patches-ref "$PATCH_REF"
+
+          echo "patch_ref=$PATCH_REF" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare pacman repo package set
+        id: package_repo
+        run: |
+          set -euo pipefail
+          mkdir -p pacman-repo
+          cp linux-bin/*.pkg.tar.zst pacman-repo/
+          shopt -s nullglob
+          pkg_count=$(ls pacman-repo/*.pkg.tar.zst | wc -l | tr -d ' ')
+          if [ "$pkg_count" -lt 1 ]; then
+            echo "No package produced in linux-bin/" >&2
+            exit 1
+          fi
+
+          if command -v repo-add >/dev/null 2>&1; then
+            (cd pacman-repo && repo-add -n linux-ps5-cachyos-bore.db.tar.gz ./*.pkg.tar.zst)
+          else
+            docker run --rm -v "$PWD/pacman-repo:/repo" archlinux:latest \
+              bash -lc 'cd /repo && repo-add -n linux-ps5-cachyos-bore.db.tar.gz ./*.pkg.tar.zst'
+          fi
+          tar -C pacman-repo -czf ps5-cachyos-bore-pacman-repo.tar.gz .
+          sha256sum linux-bin/*.pkg.tar.zst > ps5-cachyos-bore.sha256
+
+          kver=$(cat linux-bin/VERSION)
+          pkg_name=$(ls linux-bin/*.pkg.tar.zst | head -1 | xargs -n1 basename)
+          {
+            echo "kver=$kver"
+            echo "pkg_name=$pkg_name"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Release kernel and pacman repo
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ps5-cachyos-bore-latest
+          name: PS5 Linux CachyOS BORE Kernel (latest)
+          make_latest: true
+          body: |
+            PS5 Linux CachyOS BORE kernel package-only release.
+
+            Kernel: `${{ steps.package_repo.outputs.kver }}`
+            Patch set: `${{ steps.build.outputs.patch_ref }}`
+
+            Install pacman package:
+            `sudo pacman -U ${{ steps.package_repo.outputs.pkg_name }}`
+
+            Pacman repository:
+            - name: `ps5-cachyos-bore`
+            - database: `linux-ps5-cachyos-bore.db.tar.gz`
+            - base URL: `https://github.com/${{ github.repository }}/releases/download/ps5-cachyos-bore-latest/`
+
+            Checksum:
+            `ps5-cachyos-bore.sha256`
+          files: |
+            linux-bin/*
+            ps5-cachyos-bore-pacman-repo.tar.gz
+            ps5-cachyos-bore.sha256

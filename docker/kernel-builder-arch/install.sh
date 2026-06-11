@@ -1,10 +1,15 @@
 #!/bin/bash
-# Pacman .INSTALL script for linux-ps5.
+# Pacman .INSTALL script for PS5 kernel package.
 # KVER is replaced at package build time.
 
 post_install() {
     KVER="__KVER__"
-    echo ">> linux-ps5 post_install: kernel $KVER"
+    PKGNAME="__PKGNAME__"
+    if [ -n "$PKGNAME" ] && [ "$PKGNAME" != "__PKGNAME__" ]; then
+        echo ">> $PKGNAME post_install: kernel $KVER"
+    else
+        echo ">> linux-ps5 post_install: kernel $KVER"
+    fi
 
     # Rebuild initramfs
     if command -v mkinitcpio >/dev/null 2>&1; then

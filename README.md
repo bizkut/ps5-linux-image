@@ -27,6 +27,9 @@ OR
 # Build CachyOS (Arch-based, Gamescope + Steam Big Picture)
 ./build_image.sh --distro cachyos
 
+# Build only the CachyOS BORE kernel package (ps5-linux-cachyos-bore)
+./build_image.sh --distro cachyos --kernel-profile ps5-cachyos-bore --kernel-only
+
 OR
 
 # Build Kali Linux (XFCE + kali-linux-everything)
@@ -120,16 +123,19 @@ can use noticeable CPU time while it runs.
 |------|-------------|---------|
 | `--distro` | `ubuntu2604`, `arch`, `cachyos`, `kali`, or `all` | `ubuntu2604` |
 | `--kernel` | Path to kernel source directory | auto-clone version selected by PS5 patch set |
+| `--kernel-profile` | `ps5-stable` or `ps5-cachyos-bore` | `ps5-stable` |
+| `--kernel-profile-dry-run` | Print selected kernel profile metadata and exit | off |
 | `--img-size` | Disk image size in MB | `12000` (`32000` for `all`, `98304` for `kali`) |
 | `--clean` | Remove all cached build artifacts and start fresh | off |
 | `--kernel-only` | Build and package the kernel only, then exit | off |
-| `--patches-ref` | Branch, tag, or commit SHA for patches | `v1.2` |
+| `--workspace` | Case-sensitive workspace for kernel tree and package output | `<repo>/work` |
+| `--patches-ref` | Branch, tag, or commit SHA for patches | `main` |
 
 ## Caching
 
 The build automatically skips stages that have already completed:
 
-- **Kernel source** — reused if `work/linux/` exists
+- **Kernel source** — reused if `<workspace>/linux/` exists
 - **Kernel packages** — reused if `.deb`/`.pkg.tar.zst` files exist in `linux-bin/`
 - **Root filesystem** — reused if chroot directories are populated
 
@@ -188,14 +194,40 @@ Use `--kernel-only` to compile the PS5 kernel and produce installable packages w
 ```bash
 ./build_image.sh --kernel-only                                # .deb (default)
 ./build_image.sh --kernel-only --distro all                   # .deb + .pkg.tar.zst
-./build_image.sh --kernel-only --patches-ref main             # fetch from specific branch/tag
+./build_image.sh --kernel-profile ps5-cachyos-bore --kernel-only  # BORE .pkg.tar.zst
 ./build_image.sh --kernel-only --clean                        # wipe and rebuild from scratch
+./build_image.sh --workspace /Volumes/ps5-linux-kernel         # use case-sensitive build workspace
 ```
 
 Output packages are written to `linux-bin/`. Install on a running PS5 Linux system:
 
 ```bash
-sudo dpkg -i linux-bin/linux-ps5_*.deb
+sudo dpkg -i linux-bin/linux-ps5_*.deb   # Debian-based PS5 images
+sudo pacman -U linux-bin/linux-ps5-cachyos-bore_*.pkg.tar.zst   # CachyOS profile
+```
+
+### CachyOS pacman repo (release artifact)
+
+The BORE-only workflow publishes a GitHub release containing:
+
+- `linux-ps5-cachyos-bore_<ver>_x86_64.pkg.tar.zst`
+- `linux-ps5-cachyos-bore.db.tar.gz`
+- `ps5-cachyos-bore-pacman-repo.tar.gz`
+- `ps5-cachyos-bore.sha256`
+
+To use updates by package name:
+
+```ini
+[ps5-linux-cachyos-bore]
+SigLevel = Optional TrustAll
+Server = https://github.com/bizkut/ps5-linux-image/releases/download/ps5-cachyos-bore-latest
+```
+
+Then:
+
+```bash
+sudo pacman -Sy
+sudo pacman -S ps5-linux-cachyos-bore
 ```
 
 ## Directory Layout

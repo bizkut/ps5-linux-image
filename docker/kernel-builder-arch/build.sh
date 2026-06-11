@@ -11,8 +11,13 @@ fi
 
 # Determine version from staged modules directory
 KVER=$(ls /out/staging/lib/modules/)
-PKGNAME="linux-ps5"
+PKGNAME="${KERNEL_PACKAGE_NAME:-linux-ps5}"
 VERSION=${KVER%%-*}
+REL=${KVER#"$VERSION"}
+REL="${REL#-}"
+if [ -z "$REL" ]; then
+    REL=1
+fi
 
 echo "==> Packaging kernel $KVER as pacman package"
 
@@ -37,8 +42,8 @@ if [ -d /out/staging/headers ]; then
     cp -a /out/staging/headers/lib/modules/$KVER/build "$STAGING/usr/lib/modules/$KVER/build"
 fi
 
-# Create .INSTALL from template, baking in KVER
-sed "s/__KVER__/$KVER/g" /install.sh > "$STAGING/.INSTALL"
+# Create .INSTALL from template, baking in package name/version
+sed "s/__KVER__/$KVER/g; s/__PKGNAME__/$PKGNAME/g" /install.sh > "$STAGING/.INSTALL"
 
 # Create .PKGINFO
 BUILDDATE=$(date -u +%s)
@@ -46,7 +51,8 @@ INSTALLED_SIZE=$(du -sb "$STAGING" | awk '{print $1}')
 cat > "$STAGING/.PKGINFO" << EOF
 pkgname = $PKGNAME
 pkgbase = $PKGNAME
-pkgver = ${VERSION}-1
+pkgver = $VERSION
+pkgrel = $REL
 pkgdesc = PS5 Linux kernel $KVER (image + modules + headers)
 url = https://kernel.org
 builddate = $BUILDDATE
@@ -74,6 +80,7 @@ LANG=C bsdtar -czf .MTREE --format=mtree \
     .PKGINFO .INSTALL *
 
 # Build the package
-LANG=C bsdtar -cf - .PKGINFO .INSTALL .MTREE * | zstd -c -T0 > "/out/${PKGNAME}-${VERSION}-1-x86_64.pkg.tar.zst"
+PKGFILE="${PKGNAME}-${VERSION}-${REL}-1-x86_64.pkg.tar.zst"
+LANG=C bsdtar -cf - .PKGINFO .INSTALL .MTREE * | zstd -c -T0 > "/out/$PKGFILE"
 
-echo "==> Done: /out/${PKGNAME}-${VERSION}-1-x86_64.pkg.tar.zst"
+echo "==> Done: /out/$PKGFILE"

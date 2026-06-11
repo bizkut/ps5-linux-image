@@ -1,11 +1,11 @@
 #!/bin/bash
-# Builds a combined linux-ps5 .deb from staged artifacts in /out/staging.
+# Builds a combined kernel .deb from staged artifacts in /out/staging.
 # Runs inside the kernel-builder container; output goes to /out.
 set -e
 
 STAGING="/out/staging"
 KVER=$(ls -1 "$STAGING/lib/modules" | head -1)
-VER="${KVER%%-*}"
+PKG_NAME="${KERNEL_PACKAGE_NAME:-linux-ps5}"
 ARCH=amd64
 
 PKG=$(mktemp -d)
@@ -29,8 +29,8 @@ if [ -d "$STAGING/headers" ]; then
 fi
 
 cat > "$PKG/DEBIAN/control" << CTRL
-Package: linux-ps5
-Version: $VER
+Package: $PKG_NAME
+Version: $KVER
 Architecture: $ARCH
 Maintainer: PS5 Linux
 Provides: linux-image-$KVER, linux-headers-$KVER, linux-libc-dev
@@ -39,11 +39,12 @@ Replaces: linux-image-$KVER, linux-headers-$KVER, linux-libc-dev
 Description: PS5 Linux kernel $KVER (image + modules + headers + libc-dev)
 CTRL
 
-cat > "$PKG/DEBIAN/postinst" << 'POSTINST'
+cat > "$PKG/DEBIAN/postinst" << POSTINST
 #!/bin/bash
 set -e
+PKG_NAME="$PKG_NAME"
 KVER="$(ls -1t /lib/modules | head -1)"
-echo ">> linux-ps5 postinst: kernel $KVER"
+echo ">> $PKG_NAME postinst: kernel $KVER"
 
 # Rebuild initramfs
 if command -v update-initramfs >/dev/null 2>&1; then
@@ -76,5 +77,5 @@ fi
 POSTINST
 chmod 755 "$PKG/DEBIAN/postinst"
 
-dpkg-deb --build --root-owner-group "$PKG" "/out/linux-ps5_${VER}_${ARCH}.deb"
+dpkg-deb --build --root-owner-group "$PKG" "/out/${PKG_NAME}_${KVER}_${ARCH}.deb"
 rm -rf "$PKG"

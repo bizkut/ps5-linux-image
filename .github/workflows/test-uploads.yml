@@ -93,7 +93,7 @@ jobs:
             echo "PS5 Linux images — built from latest \`main\`."
             echo ""
             echo "Kernel: \`$KVER\`"
-            echo "Patches: [\`$PSHA\`](https://github.com/ps5-linux/ps5-linux-patches/commit/$PSHA)"
+            echo "Patches: [\`$PSHA\`](https://github.com/bizkut/ps5-linux-patches/commit/$PSHA)"
             echo "Built: \`$TS\`"
             echo ""
             echo "| Image | Download |"
