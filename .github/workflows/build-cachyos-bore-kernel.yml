@@ -4,11 +4,16 @@ run-name: Build PS5 CachyOS BORE Kernel
 on:
   workflow_dispatch:
     inputs:
+      runner:
+        description: "GitHub Actions runner label (e.g., ubuntu-24.04, self-hosted)"
+        default: "ubuntu-24.04"
+        type: string
       patches_ref:
         description: "ps5-linux-patches ref (branch, tag, or SHA)"
         default: "main"
+        type: string
       workspace:
-        description: "Case-sensitive build workspace (overrides PS5_LINUX_WORKSPACE)"
+        description: "Case-sensitive build workspace. Defaults to PS5_LINUX_WORKSPACE or RUNNER_TEMP/ps5-linux-kernel."
         default: ""
         type: string
   schedule:
@@ -16,14 +21,23 @@ on:
 
 jobs:
   build:
-    runs-on: self-hosted
+    runs-on: ${{ inputs.runner || 'ubuntu-24.04' }}
+    container:
+      image: archlinux:latest
+      options: --privileged
     timeout-minutes: 720
     permissions:
       contents: write
 
     steps:
+      - name: Install dependencies
+        run: |
+          echo 'DisableSandbox' >> /etc/pacman.conf
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm base-devel bc bison flex elfutils openssl python rsync git ccache pahole zstd libarchive
+
       - name: Checkout image builder
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Build CachyOS BORE kernel
         id: build
@@ -37,17 +51,113 @@ jobs:
             WORKSPACE="$PS5_LINUX_WORKSPACE"
           fi
           if [ -z "${WORKSPACE:-}" ]; then
-            WORKSPACE="/Volumes/ps5-linux-kernel"
+            WORKSPACE="${RUNNER_TEMP:-$PWD/.runner-temp}/ps5-linux-kernel"
+          fi
+          mkdir -p "$WORKSPACE"
+
+          # 1. Fetch patches
+          PATCHES_DIR="$WORKSPACE/ps5-linux-patches"
+          mkdir -p "$PATCHES_DIR"
+          git init "$PATCHES_DIR"
+          git -C "$PATCHES_DIR" remote add origin https://github.com/bizkut/ps5-linux-patches.git
+          git -C "$PATCHES_DIR" fetch --depth 1 origin "$PATCH_REF" || git -C "$PATCHES_DIR" fetch origin "$PATCH_REF"
+          git -C "$PATCHES_DIR" reset --hard FETCH_HEAD
+
+          # 2. Run prepare-cachyos-kernel.sh
+          LINUX_TMP_DIR="$WORKSPACE/linux.tmp"
+          rm -rf "$LINUX_TMP_DIR"
+          export WORKSPACE_ROOT="$WORKSPACE"
+          export CACHYOS_WORKDIR="$WORKSPACE/upstreams"
+          bash scripts/prepare-cachyos-kernel.sh kernel-profiles/ps5-cachyos-bore.env "$LINUX_TMP_DIR" "$PATCHES_DIR"
+
+          # 3. Compile the kernel natively in Arch
+          cd "$LINUX_TMP_DIR"
+          make -C tools/objtool clean 2>/dev/null || true
+          make olddefconfig
+          make -j$(nproc) bzImage modules
+
+          # 4. Stage artifacts
+          echo "=== Staging build artifacts ==="
+          OUT_STAGING="$WORKSPACE/linux-bin/staging"
+          rm -rf "$OUT_STAGING"
+          mkdir -p "$OUT_STAGING/boot"
+          cp arch/x86/boot/bzImage "$OUT_STAGING/boot/"
+          cp System.map             "$OUT_STAGING/"
+          cp .config                "$OUT_STAGING/"
+          make modules_install INSTALL_MOD_PATH="$OUT_STAGING" INSTALL_MOD_STRIP=1
+          KVER=$(make -s kernelrelease)
+          rm -f "$OUT_STAGING/lib/modules/$KVER/build" "$OUT_STAGING/lib/modules/$KVER/source"
+
+          # Stage headers
+          HDR="$OUT_STAGING/headers"
+          make headers_install INSTALL_HDR_PATH="$HDR/usr"
+          export srctree="$PWD" SRCARCH=x86
+          CC=gcc HOSTCC=gcc MAKE=make ./scripts/package/install-extmod-build "$HDR/lib/modules/$KVER/build"
+
+          # 5. Package as pacman .pkg.tar.zst (native version of kernel-builder-arch/build.sh)
+          echo "==> Packaging kernel $KVER as pacman package"
+          PKGNAME="linux-ps5-cachyos-bore"
+          VERSION=${KVER%%-*}
+          REL=${KVER#"$VERSION"}
+          REL="${REL#-}"
+          [ -z "$REL" ] && REL=1
+
+          STAGING=$(mktemp -d)
+          mkdir -p "$STAGING/boot"
+          cp "$OUT_STAGING/boot/bzImage" "$STAGING/boot/vmlinuz-$KVER"
+          cp "$OUT_STAGING/System.map"   "$STAGING/boot/System.map-$KVER"
+          cp "$OUT_STAGING/.config"      "$STAGING/boot/config-$KVER"
+          mkdir -p "$STAGING/usr/lib/modules"
+          cp -a "$OUT_STAGING/lib/modules/$KVER" "$STAGING/usr/lib/modules/"
+          if [ -d "$OUT_STAGING/headers" ]; then
+              cp -a "$OUT_STAGING/headers/usr" "$STAGING/usr"
+              mkdir -p "$STAGING/usr/lib/modules/$KVER"
+              cp -a "$OUT_STAGING/headers/lib/modules/$KVER/build" "$STAGING/usr/lib/modules/$KVER/build"
           fi
 
-          export PS5_LINUX_WORKSPACE="$WORKSPACE"
-          bash build_image.sh \
-            --distro cachyos \
-            --kernel-profile ps5-cachyos-bore \
-            --kernel-only \
-            --workspace "$WORKSPACE" \
-            --patches-ref "$PATCH_REF"
+          cd "$GITHUB_WORKSPACE"
+          sed "s/__KVER__/$KVER/g; s/__PKGNAME__/$PKGNAME/g" docker/kernel-builder-arch/install.sh > "$STAGING/.INSTALL"
 
+          # Create .PKGINFO
+          BUILDDATE=$(date -u +%s)
+          INSTALLED_SIZE=$(du -sb "$STAGING" | awk '{print $1}')
+          {
+            echo "pkgname = $PKGNAME"
+            echo "pkgbase = $PKGNAME"
+            echo "pkgver = $VERSION"
+            echo "pkgrel = $REL"
+            echo "pkgdesc = PS5 Linux CachyOS BORE kernel $KVER (image + modules + headers)"
+            echo "url = https://github.com/bizkut/ps5-linux-image"
+            echo "builddate = $BUILDDATE"
+            echo "packager = ps5-linux"
+            echo "size = $INSTALLED_SIZE"
+            echo "arch = x86_64"
+            echo "license = GPL-2.0-only"
+            echo "provides = linux=$VERSION"
+            echo "provides = linux-headers=$VERSION"
+            echo "provides = linux-api-headers=$VERSION"
+            echo "conflict = linux"
+            echo "conflict = linux-headers"
+            echo "conflict = linux-api-headers"
+            echo "conflict = linux-custom"
+            echo "replaces = linux"
+            echo "replaces = linux-headers"
+            echo "replaces = linux-api-headers"
+            echo "replaces = linux-custom"
+          } > "$STAGING/.PKGINFO"
+
+          # Create .MTREE
+          cd "$STAGING"
+          LANG=C bsdtar -czf .MTREE --format=mtree \
+              --options='!all,use-set,type,uid,gid,mode,time,size,md5,sha256,link' \
+              .PKGINFO .INSTALL *
+
+          mkdir -p "$GITHUB_WORKSPACE/linux-bin"
+          echo "$KVER" > "$GITHUB_WORKSPACE/linux-bin/VERSION"
+          PKGFILE="${PKGNAME}-${VERSION}-${REL}-1-x86_64.pkg.tar.zst"
+          LANG=C bsdtar -cf - .PKGINFO .INSTALL .MTREE * | zstd -c -T0 > "$GITHUB_WORKSPACE/linux-bin/$PKGFILE"
+
+          echo "==> Packaging complete: $GITHUB_WORKSPACE/linux-bin/$PKGFILE"
           echo "patch_ref=$PATCH_REF" >> "$GITHUB_OUTPUT"
 
       - name: Prepare pacman repo package set
@@ -69,6 +179,8 @@ jobs:
             docker run --rm -v "$PWD/pacman-repo:/repo" archlinux:latest \
               bash -lc 'cd /repo && repo-add -n linux-ps5-cachyos-bore.db.tar.gz ./*.pkg.tar.zst'
           fi
+          cp pacman-repo/linux-ps5-cachyos-bore.db* .
+          cp pacman-repo/linux-ps5-cachyos-bore.files* .
           tar -C pacman-repo -czf ps5-cachyos-bore-pacman-repo.tar.gz .
           sha256sum linux-bin/*.pkg.tar.zst > ps5-cachyos-bore.sha256
 
@@ -95,7 +207,7 @@ jobs:
             `sudo pacman -U ${{ steps.package_repo.outputs.pkg_name }}`
 
             Pacman repository:
-            - name: `ps5-cachyos-bore`
+            - name: `ps5-linux-cachyos-bore`
             - database: `linux-ps5-cachyos-bore.db.tar.gz`
             - base URL: `https://github.com/${{ github.repository }}/releases/download/ps5-cachyos-bore-latest/`
 
@@ -103,5 +215,7 @@ jobs:
             `ps5-cachyos-bore.sha256`
           files: |
             linux-bin/*
+            linux-ps5-cachyos-bore.db*
+            linux-ps5-cachyos-bore.files*
             ps5-cachyos-bore-pacman-repo.tar.gz
             ps5-cachyos-bore.sha256
