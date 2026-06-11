@@ -97,10 +97,7 @@ jobs:
           # 5. Package as pacman .pkg.tar.zst (native version of kernel-builder-arch/build.sh)
           echo "==> Packaging kernel $KVER as pacman package"
           PKGNAME="linux-ps5-cachyos-bore"
-          VERSION=${KVER%%-*}
-          REL=${KVER#"$VERSION"}
-          REL="${REL#-}"
-          [ -z "$REL" ] && REL=1
+          PKGVER="${KVER//-/_}-1"
 
           STAGING=$(mktemp -d)
           mkdir -p "$STAGING/boot"
@@ -124,8 +121,7 @@ jobs:
           {
             echo "pkgname = $PKGNAME"
             echo "pkgbase = $PKGNAME"
-            echo "pkgver = $VERSION"
-            echo "pkgrel = $REL"
+            echo "pkgver = $PKGVER"
             echo "pkgdesc = PS5 Linux CachyOS BORE kernel $KVER (image + modules + headers)"
             echo "url = https://github.com/bizkut/ps5-linux-image"
             echo "builddate = $BUILDDATE"
@@ -133,9 +129,9 @@ jobs:
             echo "size = $INSTALLED_SIZE"
             echo "arch = x86_64"
             echo "license = GPL-2.0-only"
-            echo "provides = linux=$VERSION"
-            echo "provides = linux-headers=$VERSION"
-            echo "provides = linux-api-headers=$VERSION"
+            echo "provides = linux=${KVER%%-*}"
+            echo "provides = linux-headers=${KVER%%-*}"
+            echo "provides = linux-api-headers=${KVER%%-*}"
             echo "conflict = linux"
             echo "conflict = linux-headers"
             echo "conflict = linux-api-headers"
@@ -154,7 +150,7 @@ jobs:
 
           mkdir -p "$GITHUB_WORKSPACE/linux-bin"
           echo "$KVER" > "$GITHUB_WORKSPACE/linux-bin/VERSION"
-          PKGFILE="${PKGNAME}-${VERSION}-${REL}-1-x86_64.pkg.tar.zst"
+          PKGFILE="${PKGNAME}-${PKGVER}-x86_64.pkg.tar.zst"
           LANG=C bsdtar -cf - .PKGINFO .INSTALL .MTREE * | zstd -c -T0 > "$GITHUB_WORKSPACE/linux-bin/$PKGFILE"
 
           echo "==> Packaging complete: $GITHUB_WORKSPACE/linux-bin/$PKGFILE"

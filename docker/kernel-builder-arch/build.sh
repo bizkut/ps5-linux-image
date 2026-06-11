@@ -47,12 +47,7 @@ fi
 # Determine version from staged modules directory
 KVER=$(ls /out/staging/lib/modules/)
 PKGNAME="${KERNEL_PACKAGE_NAME:-linux-ps5}"
-VERSION=${KVER%%-*}
-REL=${KVER#"$VERSION"}
-REL="${REL#-}"
-if [ -z "$REL" ]; then
-    REL=1
-fi
+PKGVER="${KVER//-/_}-1"
 
 echo "==> Packaging kernel $KVER as pacman package"
 
@@ -86,8 +81,7 @@ INSTALLED_SIZE=$(du -sb "$STAGING" | awk '{print $1}')
 cat > "$STAGING/.PKGINFO" << EOF
 pkgname = $PKGNAME
 pkgbase = $PKGNAME
-pkgver = $VERSION
-pkgrel = $REL
+pkgver = $PKGVER
 pkgdesc = PS5 Linux kernel $KVER (image + modules + headers)
 url = https://kernel.org
 builddate = $BUILDDATE
@@ -95,9 +89,9 @@ packager = ps5-linux
 size = $INSTALLED_SIZE
 arch = x86_64
 license = GPL-2.0-only
-provides = linux=$VERSION
-provides = linux-headers=$VERSION
-provides = linux-api-headers=$VERSION
+provides = linux=${KVER%%-*}
+provides = linux-headers=${KVER%%-*}
+provides = linux-api-headers=${KVER%%-*}
 conflict = linux
 conflict = linux-headers
 conflict = linux-api-headers
@@ -115,7 +109,7 @@ LANG=C bsdtar -czf .MTREE --format=mtree \
     .PKGINFO .INSTALL *
 
 # Build the package
-PKGFILE="${PKGNAME}-${VERSION}-${REL}-1-x86_64.pkg.tar.zst"
+PKGFILE="${PKGNAME}-${PKGVER}-x86_64.pkg.tar.zst"
 LANG=C bsdtar -cf - .PKGINFO .INSTALL .MTREE * | zstd -c -T0 > "/out/$PKGFILE"
 
 echo "==> Done: /out/$PKGFILE"
