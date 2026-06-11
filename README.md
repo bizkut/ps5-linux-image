@@ -163,7 +163,8 @@ creates a release artifact with pacman metadata:
 Dispatch input controls:
 
 - `patches_ref`: branch/tag/SHA from `bizkut/ps5-linux-patches` (default `main`)
-- `workspace`: case-sensitive workspace (default `/Volumes/ps5-linux-kernel`)
+- `workspace`: case-sensitive workspace; defaults to `PS5_LINUX_WORKSPACE` or
+  `${RUNNER_TEMP}/ps5-linux-kernel`
 
 Manual run example:
 
@@ -173,6 +174,9 @@ gh workflow run "Build PS5 CachyOS BORE Kernel" \
   -f patches_ref=main \
   -f workspace=/Volumes/ps5-linux-kernel
 ```
+
+For a self-hosted macOS runner, set `PS5_LINUX_WORKSPACE=/Volumes/ps5-linux-kernel`
+or pass it as the manual `workspace` input when that volume is attached.
 
 Scheduled builds run weekly and always package the latest available BORE toolchain state.
 

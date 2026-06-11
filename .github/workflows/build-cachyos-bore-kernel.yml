@@ -8,7 +8,7 @@ on:
         description: "ps5-linux-patches ref (branch, tag, or SHA)"
         default: "main"
       workspace:
-        description: "Case-sensitive build workspace (overrides PS5_LINUX_WORKSPACE)"
+        description: "Case-sensitive build workspace. Defaults to PS5_LINUX_WORKSPACE or RUNNER_TEMP/ps5-linux-kernel."
         default: ""
         type: string
   schedule:
@@ -37,7 +37,7 @@ jobs:
             WORKSPACE="$PS5_LINUX_WORKSPACE"
           fi
           if [ -z "${WORKSPACE:-}" ]; then
-            WORKSPACE="/Volumes/ps5-linux-kernel"
+            WORKSPACE="${RUNNER_TEMP:-$PWD/.runner-temp}/ps5-linux-kernel"
           fi
 
           export PS5_LINUX_WORKSPACE="$WORKSPACE"
