@@ -4,9 +4,14 @@ run-name: Build PS5 CachyOS BORE Kernel
 on:
   workflow_dispatch:
     inputs:
+      runner:
+        description: "GitHub Actions runner label (e.g., ubuntu-24.04, self-hosted)"
+        default: "ubuntu-24.04"
+        type: string
       patches_ref:
         description: "ps5-linux-patches ref (branch, tag, or SHA)"
         default: "main"
+        type: string
       workspace:
         description: "Case-sensitive build workspace. Defaults to PS5_LINUX_WORKSPACE or RUNNER_TEMP/ps5-linux-kernel."
         default: ""
@@ -16,7 +21,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ inputs.runner || 'ubuntu-24.04' }}
     container:
       image: archlinux:latest
       options: --privileged
