@@ -311,9 +311,8 @@ else
         done
 
         if [ "$KERNEL_BASE" = "cachyos" ]; then
+            WORKSPACE_ROOT="$WORKSPACE_ROOT" CACHYOS_WORKDIR="$WORKSPACE_ROOT/upstreams" \
             run_stage "Prepare CachyOS kernel source" \
-                WORKSPACE_ROOT="$WORKSPACE_ROOT" \
-                CACHYOS_WORKDIR="$WORKSPACE_ROOT/upstreams" \
                 "$SCRIPT_DIR/scripts/prepare-cachyos-kernel.sh" "$PROFILE_FILE" "$LINUX_TMP_DIR" "$PATCHES_DIR"
         else
             LINUX_BRANCH="v$(sed -nE 's/^# Linux\/[^ ]+ ([0-9]+(\.[0-9]+){1,2}).*/\1/p' "$PATCHES_DIR/.config" | head -1)"
