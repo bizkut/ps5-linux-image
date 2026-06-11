@@ -27,9 +27,6 @@ export CACHYOS_WORKDIR
 
 profile_lib="$SCRIPT_DIR/scripts/kernel-profile-lib.sh"
 cache_dir="$WORKSPACE_ROOT/cache/cachyos"
-srcname="$("$profile_lib" cachyos-srcname "$profile_file")"
-source_url="$("$profile_lib" cachyos-source-url "$profile_file")"
-tarball="$cache_dir/${srcname}.tar.gz"
 extract_dir="$target_dir.extract"
 ps5_patchdir="${ps5_patchdir:-${PS5_PATCHDIR:-}}"
 
@@ -39,6 +36,10 @@ ps5_patchdir="${ps5_patchdir:-${PS5_PATCHDIR:-}}"
 mkdir -p "$cache_dir" "$(dirname "$target_dir")"
 
 "$profile_lib" cachyos-sync "$profile_file"
+
+srcname="$("$profile_lib" cachyos-srcname "$profile_file")"
+source_url="$("$profile_lib" cachyos-source-url "$profile_file")"
+tarball="$cache_dir/${srcname}.tar.gz"
 
 if [ ! -f "$tarball" ]; then
     curl -fL --retry 3 --retry-delay 2 -o "$tarball" "$source_url"
