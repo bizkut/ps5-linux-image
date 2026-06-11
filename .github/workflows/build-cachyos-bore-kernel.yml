@@ -69,6 +69,8 @@ jobs:
             docker run --rm -v "$PWD/pacman-repo:/repo" archlinux:latest \
               bash -lc 'cd /repo && repo-add -n linux-ps5-cachyos-bore.db.tar.gz ./*.pkg.tar.zst'
           fi
+          cp pacman-repo/linux-ps5-cachyos-bore.db* .
+          cp pacman-repo/linux-ps5-cachyos-bore.files* .
           tar -C pacman-repo -czf ps5-cachyos-bore-pacman-repo.tar.gz .
           sha256sum linux-bin/*.pkg.tar.zst > ps5-cachyos-bore.sha256
 
@@ -95,7 +97,7 @@ jobs:
             `sudo pacman -U ${{ steps.package_repo.outputs.pkg_name }}`
 
             Pacman repository:
-            - name: `ps5-cachyos-bore`
+            - name: `ps5-linux-cachyos-bore`
             - database: `linux-ps5-cachyos-bore.db.tar.gz`
             - base URL: `https://github.com/${{ github.repository }}/releases/download/ps5-cachyos-bore-latest/`
 
@@ -103,5 +105,7 @@ jobs:
             `ps5-cachyos-bore.sha256`
           files: |
             linux-bin/*
+            linux-ps5-cachyos-bore.db*
+            linux-ps5-cachyos-bore.files*
             ps5-cachyos-bore-pacman-repo.tar.gz
             ps5-cachyos-bore.sha256

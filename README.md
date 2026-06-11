@@ -140,7 +140,7 @@ can use noticeable CPU time while it runs.
 
 For the BORE profile the defaults are:
 
-- PS5 patch set: `ps5-linux/ps5-linux-patches` (applied through `--patches-ref`).
+- PS5 patch set: `bizkut/ps5-linux-patches` (applied through `--patches-ref`).
 - CachyOS package recipe: `https://github.com/CachyOS/linux-cachyos.git` at `master`.
 - CachyOS patch stack: `https://github.com/CachyOS/kernel-patches.git` at `master`.
 - CachyOS kernel source: `https://github.com/CachyOS/linux` (tarballs from
@@ -162,7 +162,7 @@ creates a release artifact with pacman metadata:
 
 Dispatch input controls:
 
-- `patches_ref`: branch/tag/SHA from `ps5-linux/ps5-linux-patches` (default `main`)
+- `patches_ref`: branch/tag/SHA from `bizkut/ps5-linux-patches` (default `main`)
 - `workspace`: case-sensitive workspace (default `/Volumes/ps5-linux-kernel`)
 
 Manual run example:
@@ -272,7 +272,7 @@ Then:
 
 ```bash
 sudo pacman -Sy
-sudo pacman -S ps5-linux-cachyos-bore
+sudo pacman -S linux-ps5-cachyos-bore
 ```
 
 ## Directory Layout
