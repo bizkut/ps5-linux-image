@@ -24,11 +24,11 @@ newgrp docker
 
 OR
 
-# Build CachyOS (Arch-based, Gamescope + Steam Big Picture)
+# Build CachyOS (Arch-based, Gamescope + Steam Big Picture) with BORE + PS5 cpuclock
 ./build_image.sh --distro cachyos
 
 # Build only the CachyOS BORE kernel package (ps5-linux-cachyos-bore)
-./build_image.sh --distro cachyos --kernel-profile ps5-cachyos-bore --kernel-only
+./build_image.sh --kernel-only --distro cachyos
 
 OR
 
@@ -123,13 +123,65 @@ can use noticeable CPU time while it runs.
 |------|-------------|---------|
 | `--distro` | `ubuntu2604`, `arch`, `cachyos`, `kali`, or `all` | `ubuntu2604` |
 | `--kernel` | Path to kernel source directory | auto-clone version selected by PS5 patch set |
-| `--kernel-profile` | `ps5-stable` or `ps5-cachyos-bore` | `ps5-stable` |
+| `--kernel-profile` | `ps5-stable` or `ps5-cachyos-bore` | `ps5-cachyos-bore` for `cachyos`, `ps5-stable` otherwise |
 | `--kernel-profile-dry-run` | Print selected kernel profile metadata and exit | off |
 | `--img-size` | Disk image size in MB | `12000` (`32000` for `all`, `98304` for `kali`) |
 | `--clean` | Remove all cached build artifacts and start fresh | off |
 | `--kernel-only` | Build and package the kernel only, then exit | off |
 | `--workspace` | Case-sensitive workspace for kernel tree and package output | `<repo>/work` |
 | `--patches-ref` | Branch, tag, or commit SHA for patches | `main` |
+
+## Upstream references and branches
+
+`ps5-linux-image` keeps the kernel profile configuration explicit in:
+
+- `kernel-profiles/ps5-cachyos-bore.env`
+- `kernel-profiles/ps5-stable.env`
+
+For the BORE profile the defaults are:
+
+- PS5 patch set: `bizkut/ps5-linux-patches` (applied through `--patches-ref`).
+- CachyOS package recipe: `https://github.com/CachyOS/linux-cachyos.git` at `master`.
+- CachyOS patch stack: `https://github.com/CachyOS/kernel-patches.git` at `master`.
+- CachyOS kernel source: `https://github.com/CachyOS/linux` (tarballs from
+  `.../releases/download/cachyos-<ver>/<tar>`).
+
+When bumping kernel versions, update only the profile inputs in
+`kernel-profiles/ps5-cachyos-bore.env` (or pass via CLI env overrides) and keep
+the repository structure so future upstream pulls remain mechanical.
+
+## BORE kernel release workflow (GitHub Actions)
+
+The workflow `build-cachyos-bore-kernel.yml` builds only the BORE kernel package and
+creates a release artifact with pacman metadata:
+
+- `linux-ps5-cachyos-bore_<ver>_x86_64.pkg.tar.zst`
+- `linux-ps5-cachyos-bore.db.tar.gz`
+- `ps5-cachyos-bore-pacman-repo.tar.gz`
+- `ps5-cachyos-bore.sha256`
+
+GitHub Actions do not build full hard disk images. Full image builds are local
+operations through `build_image.sh`.
+
+Dispatch input controls:
+
+- `patches_ref`: branch/tag/SHA from `bizkut/ps5-linux-patches` (default `main`)
+- `workspace`: case-sensitive workspace; defaults to `PS5_LINUX_WORKSPACE` or
+  `${RUNNER_TEMP}/ps5-linux-kernel`
+
+Manual run example:
+
+```bash
+gh workflow run "Build PS5 CachyOS BORE Kernel" \
+  --ref main \
+  -f patches_ref=main \
+  -f workspace=/Volumes/ps5-linux-kernel
+```
+
+For a self-hosted macOS runner, set `PS5_LINUX_WORKSPACE=/Volumes/ps5-linux-kernel`
+or pass it as the manual `workspace` input when that volume is attached.
+
+Scheduled builds run weekly and always package the latest available BORE toolchain state.
 
 ## Caching
 
@@ -227,7 +279,7 @@ Then:
 
 ```bash
 sudo pacman -Sy
-sudo pacman -S ps5-linux-cachyos-bore
+sudo pacman -S linux-ps5-cachyos-bore
 ```
 
 ## Directory Layout
