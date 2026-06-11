@@ -91,14 +91,11 @@ arch = x86_64
 license = GPL-2.0-only
 provides = linux=${KVER%%-*}
 provides = linux-headers=${KVER%%-*}
-provides = linux-api-headers=${KVER%%-*}
 conflict = linux
 conflict = linux-headers
-conflict = linux-api-headers
 conflict = linux-custom
 replaces = linux
 replaces = linux-headers
-replaces = linux-api-headers
 replaces = linux-custom
 EOF
 
