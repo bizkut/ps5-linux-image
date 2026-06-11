@@ -10,7 +10,7 @@ CLEAN=false
 IMG_SIZE=12000
 KERNEL_ONLY=false
 PATCHES_REF="main"
-KERNEL_PROFILE="ps5-stable"
+KERNEL_PROFILE=""
 KERNEL_PROFILE_DRY_RUN=false
 WORKSPACE_ROOT="${PS5_LINUX_WORKSPACE:-$SCRIPT_DIR/work}"
 
@@ -26,7 +26,7 @@ usage() {
     echo "Options:"
     echo "  --distro     Distribution to build: ubuntu2604, arch, cachyos, kali, all (default: ubuntu2604)"
     echo "  --kernel     Path to kernel source directory (default: <workspace>/linux)"
-    echo "  --kernel-profile  Kernel profile: ps5-stable, ps5-cachyos-bore (default: ps5-stable)"
+    echo "  --kernel-profile  Kernel profile: ps5-stable, ps5-cachyos-bore (default: ps5-cachyos-bore for cachyos, ps5-stable otherwise)"
     echo "  --kernel-profile-dry-run  Resolve kernel profile metadata and exit"
     echo "  --img-size   Disk image size in MB (default: 12000, 32000 for --distro all, 98304 for kali)"
     echo "  --clean      Remove all cached build artifacts and start from scratch"
@@ -53,6 +53,13 @@ while [[ $# -gt 0 ]]; do
         *) echo "Unknown option: $1"; usage ;;
     esac
 done
+
+if [ -z "$KERNEL_PROFILE" ]; then
+    case "$DISTRO" in
+        cachyos) KERNEL_PROFILE="ps5-cachyos-bore" ;;
+        *) KERNEL_PROFILE="ps5-stable" ;;
+    esac
+fi
 
 PROFILE_FILE="$SCRIPT_DIR/kernel-profiles/$KERNEL_PROFILE.env"
 if [ ! -f "$PROFILE_FILE" ]; then
@@ -183,7 +190,17 @@ fi
 echo "  Kernel profile: $KERNEL_PROFILE"
 echo "  Kernel base:    $KERNEL_BASE"
 echo "  Kernel package: $KERNEL_PACKAGE_NAME"
-if [ -f "$PATCHES_DIR/.config" ]; then
+if [ "$KERNEL_BASE" = "cachyos" ]; then
+    CACHYOS_VERSION="$(
+        CACHYOS_WORKDIR="$WORKSPACE_ROOT/upstreams" \
+        "$SCRIPT_DIR/scripts/kernel-profile-lib.sh" cachyos-version "$PROFILE_FILE" 2>/dev/null || true
+    )"
+    if [ -n "$CACHYOS_VERSION" ]; then
+        echo "  Kernel:       v$CACHYOS_VERSION"
+    else
+        echo "  Kernel:       (will fetch CachyOS metadata)"
+    fi
+elif [ -f "$PATCHES_DIR/.config" ]; then
     LINUX_BRANCH="v$(sed -nE 's/^# Linux\/[^ ]+ ([0-9]+(\.[0-9]+){1,2}).*/\1/p' "$PATCHES_DIR/.config" | head -1)"
     echo "  Kernel:       $LINUX_BRANCH"
 else
@@ -304,9 +321,8 @@ else
         done
 
         if [ "$KERNEL_BASE" = "cachyos" ]; then
+            WORKSPACE_ROOT="$WORKSPACE_ROOT" CACHYOS_WORKDIR="$WORKSPACE_ROOT/upstreams" \
             run_stage "Prepare CachyOS kernel source" \
-                WORKSPACE_ROOT="$WORKSPACE_ROOT" \
-                CACHYOS_WORKDIR="$WORKSPACE_ROOT/upstreams" \
                 "$SCRIPT_DIR/scripts/prepare-cachyos-kernel.sh" "$PROFILE_FILE" "$LINUX_TMP_DIR" "$PATCHES_DIR"
         else
             LINUX_BRANCH="v$(sed -nE 's/^# Linux\/[^ ]+ ([0-9]+(\.[0-9]+){1,2}).*/\1/p' "$PATCHES_DIR/.config" | head -1)"
