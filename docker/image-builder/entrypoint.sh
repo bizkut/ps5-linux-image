@@ -132,6 +132,18 @@ sync
 
 echo "=== Assembling boot partition ==="
 mv /tmp/usb_root/boot/efi/* /tmp/usb_efi/ 2>/dev/null || true
+if [ ! -f /tmp/usb_efi/bzImage ]; then
+    BOOTDIR=/tmp/usb_root/boot
+    MODBASE=/tmp/usb_root/lib/modules
+    [ -d /tmp/usb_root/usr/lib/modules ] && MODBASE=/tmp/usb_root/usr/lib/modules
+    KVER=$(find "$MODBASE" -maxdepth 1 -mindepth 1 -type d -not -name kernel -printf '%f\n' 2>/dev/null | sort -V | tail -1)
+    if [ -n "$KVER" ] && [ -f "$BOOTDIR/vmlinuz-$KVER" ]; then
+        cp "$BOOTDIR/vmlinuz-$KVER" /tmp/usb_efi/bzImage
+    fi
+    if [ -n "$KVER" ] && [ -f "$BOOTDIR/initrd.img-$KVER" ] && [ ! -f /tmp/usb_efi/initrd.img ]; then
+        cp "$BOOTDIR/initrd.img-$KVER" /tmp/usb_efi/initrd.img
+    fi
+fi
 CMDLINE_TEMPLATE="/repo/distros/${DISTRO}/cmdline.txt"
 [ -f "$CMDLINE_TEMPLATE" ] || CMDLINE_TEMPLATE="/repo/boot/cmdline.txt"
 sed "s|__DISTRO__|$ROOT_LABEL|" "$CMDLINE_TEMPLATE" > /tmp/usb_efi/cmdline.txt
