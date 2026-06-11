@@ -24,11 +24,11 @@ newgrp docker
 
 OR
 
-# Build CachyOS (Arch-based, Gamescope + Steam Big Picture)
+# Build CachyOS (Arch-based, Gamescope + Steam Big Picture) with BORE + PS5 cpuclock
 ./build_image.sh --distro cachyos
 
 # Build only the CachyOS BORE kernel package (ps5-linux-cachyos-bore)
-./build_image.sh --distro cachyos --kernel-profile ps5-cachyos-bore --kernel-only
+./build_image.sh --kernel-only --distro cachyos
 
 OR
 
@@ -123,7 +123,7 @@ can use noticeable CPU time while it runs.
 |------|-------------|---------|
 | `--distro` | `ubuntu2604`, `arch`, `cachyos`, `kali`, or `all` | `ubuntu2604` |
 | `--kernel` | Path to kernel source directory | auto-clone version selected by PS5 patch set |
-| `--kernel-profile` | `ps5-stable` or `ps5-cachyos-bore` | `ps5-stable` |
+| `--kernel-profile` | `ps5-stable` or `ps5-cachyos-bore` | `ps5-cachyos-bore` |
 | `--kernel-profile-dry-run` | Print selected kernel profile metadata and exit | off |
 | `--img-size` | Disk image size in MB | `12000` (`32000` for `all`, `98304` for `kali`) |
 | `--clean` | Remove all cached build artifacts and start fresh | off |
