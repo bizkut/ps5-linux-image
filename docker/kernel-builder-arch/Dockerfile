@@ -1,16 +1,18 @@
-FROM --platform=linux/amd64 archlinux:latest
+FROM archlinux:latest
 
 # pacman 7+ sandbox doesn't work in Docker containers
 RUN echo 'DisableSandbox' >> /etc/pacman.conf
 
-# Only packaging tools needed — kernel is already compiled
-RUN pacman -Syu --noconfirm && pacman -S --noconfirm \
-    zstd libarchive && \
+# Kernel compile + packaging tools, matching the GitHub Actions Arch container.
+RUN pacman -Syu --noconfirm && pacman -S --noconfirm --needed \
+    base-devel bc bison flex elfutils openssl python rsync git ccache \
+    pahole zstd libarchive kmod cpio gawk xz && \
     pacman -Scc --noconfirm
 
 WORKDIR /out/staging
 
-# Pre-built artifacts are bind-mounted at /out/staging
+# Kernel source may be bind-mounted at /src.
+# Pre-built artifacts may be bind-mounted at /out/staging.
 # Output packages go to /out
 
 COPY docker/kernel-builder-arch/build.sh /build.sh

@@ -353,24 +353,26 @@ else
 
     rm -f "$KERNEL_OUT"/*.deb "$KERNEL_OUT"/*.pkg.tar.zst
 
-    run_stage "Build kernel builder image" \
-        docker build --platform "$KERNEL_BUILDER_PLATFORM" -t ps5-kernel-builder \
-            -f "$SCRIPT_DIR/docker/kernel-builder/Dockerfile" "$SCRIPT_DIR"
+    if [ "$KERNEL_BASE" = "cachyos" ] && [ "$FORMAT" = "arch" ]; then
+        run_stage "Build arch packager image" \
+            docker build --platform linux/amd64 -t ps5-kernel-packager-arch \
+                -f "$SCRIPT_DIR/docker/kernel-builder-arch/Dockerfile" "$SCRIPT_DIR"
 
-    run_stage "Compile kernel" \
-        docker run --rm --platform "$KERNEL_BUILDER_PLATFORM" --name "$DOCKER_NAME" \
-            --ulimit nofile=1048576:1048576 \
-            -e JOBS="${JOBS:-}" \
-            -e KERNEL_PACKAGE_NAME="${KERNEL_PACKAGE_NAME}" \
-            -v "$KERNEL_SRC":/src \
-            -v "$KERNEL_OUT":/out \
-            -v "$CCACHE_DIR":/ccache \
-            ps5-kernel-builder
+        run_stage "Compile and package kernel (Arch)" \
+            docker run --rm --platform linux/amd64 --name "$DOCKER_NAME" \
+                --ulimit nofile=1048576:1048576 \
+                -e JOBS="${JOBS:-}" \
+                -e KERNEL_PACKAGE_NAME="${KERNEL_PACKAGE_NAME}" \
+                -v "$KERNEL_SRC":/src \
+                -v "$KERNEL_OUT":/out \
+                -v "$CCACHE_DIR":/ccache \
+                ps5-kernel-packager-arch
+    else
+        run_stage "Build kernel builder image" \
+            docker build --platform "$KERNEL_BUILDER_PLATFORM" -t ps5-kernel-builder \
+                -f "$SCRIPT_DIR/docker/kernel-builder/Dockerfile" "$SCRIPT_DIR"
 
-    ls "$KERNEL_OUT/staging/lib/modules/" | head -1 > "$KERNEL_OUT/VERSION"
-
-    case "$FORMAT" in deb|all)
-        run_stage "Package kernel (.deb)" \
+        run_stage "Compile kernel" \
             docker run --rm --platform "$KERNEL_BUILDER_PLATFORM" --name "$DOCKER_NAME" \
                 --ulimit nofile=1048576:1048576 \
                 -e JOBS="${JOBS:-}" \
@@ -378,20 +380,34 @@ else
                 -v "$KERNEL_SRC":/src \
                 -v "$KERNEL_OUT":/out \
                 -v "$CCACHE_DIR":/ccache \
-                ps5-kernel-builder \
-                /package-deb.sh
-    esac
+                ps5-kernel-builder
 
-    case "$FORMAT" in arch|all)
-        run_stage "Build arch packager image" \
-            docker build -t ps5-kernel-packager-arch \
-                -f "$SCRIPT_DIR/docker/kernel-builder-arch/Dockerfile" "$SCRIPT_DIR"
-        run_stage "Package kernel (.pkg.tar.zst)" \
-            docker run --rm --name "$DOCKER_NAME" \
-                -e KERNEL_PACKAGE_NAME="${KERNEL_PACKAGE_NAME}" \
-                -v "$KERNEL_OUT":/out \
-                ps5-kernel-packager-arch
-    esac
+        ls "$KERNEL_OUT/staging/lib/modules/" | head -1 > "$KERNEL_OUT/VERSION"
+
+        case "$FORMAT" in deb|all)
+            run_stage "Package kernel (.deb)" \
+                docker run --rm --platform "$KERNEL_BUILDER_PLATFORM" --name "$DOCKER_NAME" \
+                    --ulimit nofile=1048576:1048576 \
+                    -e JOBS="${JOBS:-}" \
+                    -e KERNEL_PACKAGE_NAME="${KERNEL_PACKAGE_NAME}" \
+                    -v "$KERNEL_SRC":/src \
+                    -v "$KERNEL_OUT":/out \
+                    -v "$CCACHE_DIR":/ccache \
+                    ps5-kernel-builder \
+                    /package-deb.sh
+        esac
+
+        case "$FORMAT" in arch|all)
+            run_stage "Build arch packager image" \
+                docker build --platform linux/amd64 -t ps5-kernel-packager-arch \
+                    -f "$SCRIPT_DIR/docker/kernel-builder-arch/Dockerfile" "$SCRIPT_DIR"
+            run_stage "Package kernel (.pkg.tar.zst)" \
+                docker run --rm --platform linux/amd64 --name "$DOCKER_NAME" \
+                    -e KERNEL_PACKAGE_NAME="${KERNEL_PACKAGE_NAME}" \
+                    -v "$KERNEL_OUT":/out \
+                    ps5-kernel-packager-arch
+        esac
+    fi
 fi
 
 if [ "$KERNEL_ONLY" = true ]; then

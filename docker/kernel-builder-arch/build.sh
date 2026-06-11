@@ -1,11 +1,46 @@
 #!/bin/bash
-# Packages pre-built kernel artifacts as a pacman .pkg.tar.zst.
+# Compiles a kernel from /src when available, then packages staged artifacts
+# as a pacman .pkg.tar.zst.
 # Runs inside Docker as root; packages manually (makepkg refuses root).
-# Expects build artifacts staged in /out/staging by the ubuntu build step.
 set -e
 
+export PATH="/usr/lib/ccache:${PATH}"
+export CCACHE_DIR="${CCACHE_DIR:-/ccache}"
+
+if [ -f /src/Makefile ]; then
+    cd /src
+    make -C tools/objtool clean 2>/dev/null || true
+
+    JOBS="${JOBS:-$(nproc)}"
+    make olddefconfig
+    make -j"$JOBS" bzImage modules
+
+    echo "=== Staging build artifacts ==="
+    rm -rf /out/staging
+    mkdir -p /out/staging/boot
+
+    cp arch/x86/boot/bzImage /out/staging/boot/
+    cp System.map             /out/staging/
+    cp .config                /out/staging/
+
+    make modules_install INSTALL_MOD_PATH=/out/staging INSTALL_MOD_STRIP=1
+
+    KVER=$(make -s kernelrelease)
+    rm -f "/out/staging/lib/modules/$KVER/build" \
+          "/out/staging/lib/modules/$KVER/source"
+
+    echo "=== Staging kernel headers ==="
+    HDR="/out/staging/headers"
+    make headers_install INSTALL_HDR_PATH="$HDR/usr"
+
+    export srctree=/src SRCARCH=x86
+    CC=gcc HOSTCC=gcc MAKE=make /src/scripts/package/install-extmod-build "$HDR/lib/modules/$KVER/build"
+
+    echo "$KVER" > /out/VERSION
+fi
+
 if [ ! -f /out/staging/boot/bzImage ]; then
-    echo "Error: no staged artifacts in /out/staging — run the kernel build step first"
+    echo "Error: no kernel source at /src and no staged artifacts in /out/staging"
     exit 1
 fi
 
