@@ -131,6 +131,51 @@ can use noticeable CPU time while it runs.
 | `--workspace` | Case-sensitive workspace for kernel tree and package output | `<repo>/work` |
 | `--patches-ref` | Branch, tag, or commit SHA for patches | `main` |
 
+## Upstream references and branches
+
+`ps5-linux-image` keeps the kernel profile configuration explicit in:
+
+- `kernel-profiles/ps5-cachyos-bore.env`
+- `kernel-profiles/ps5-stable.env`
+
+For the BORE profile the defaults are:
+
+- PS5 patch set: `ps5-linux/ps5-linux-patches` (applied through `--patches-ref`).
+- CachyOS package recipe: `https://github.com/CachyOS/linux-cachyos.git` at `master`.
+- CachyOS patch stack: `https://github.com/CachyOS/kernel-patches.git` at `master`.
+- CachyOS kernel source: `https://github.com/CachyOS/linux` (tarballs from
+  `.../releases/download/cachyos-<ver>/<tar>`).
+
+When bumping kernel versions, update only the profile inputs in
+`kernel-profiles/ps5-cachyos-bore.env` (or pass via CLI env overrides) and keep
+the repository structure so future upstream pulls remain mechanical.
+
+## BORE kernel release workflow (GitHub Actions)
+
+The workflow `build-cachyos-bore-kernel.yml` builds only the BORE kernel package and
+creates a release artifact with pacman metadata:
+
+- `linux-ps5-cachyos-bore_<ver>_x86_64.pkg.tar.zst`
+- `linux-ps5-cachyos-bore.db.tar.gz`
+- `ps5-cachyos-bore-pacman-repo.tar.gz`
+- `ps5-cachyos-bore.sha256`
+
+Dispatch input controls:
+
+- `patches_ref`: branch/tag/SHA from `ps5-linux/ps5-linux-patches` (default `main`)
+- `workspace`: case-sensitive workspace (default `/Volumes/ps5-linux-kernel`)
+
+Manual run example:
+
+```bash
+gh workflow run "Build PS5 CachyOS BORE Kernel" \
+  --ref main \
+  -f patches_ref=main \
+  -f workspace=/Volumes/ps5-linux-kernel
+```
+
+Scheduled builds run weekly and always package the latest available BORE toolchain state.
+
 ## Caching
 
 The build automatically skips stages that have already completed:
