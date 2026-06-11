@@ -123,7 +123,7 @@ can use noticeable CPU time while it runs.
 |------|-------------|---------|
 | `--distro` | `ubuntu2604`, `arch`, `cachyos`, `kali`, or `all` | `ubuntu2604` |
 | `--kernel` | Path to kernel source directory | auto-clone version selected by PS5 patch set |
-| `--kernel-profile` | `ps5-stable` or `ps5-cachyos-bore` | `ps5-cachyos-bore` |
+| `--kernel-profile` | `ps5-stable` or `ps5-cachyos-bore` | `ps5-cachyos-bore` for `cachyos`, `ps5-stable` otherwise |
 | `--kernel-profile-dry-run` | Print selected kernel profile metadata and exit | off |
 | `--img-size` | Disk image size in MB | `12000` (`32000` for `all`, `98304` for `kali`) |
 | `--clean` | Remove all cached build artifacts and start fresh | off |
@@ -159,6 +159,9 @@ creates a release artifact with pacman metadata:
 - `linux-ps5-cachyos-bore.db.tar.gz`
 - `ps5-cachyos-bore-pacman-repo.tar.gz`
 - `ps5-cachyos-bore.sha256`
+
+GitHub Actions do not build full hard disk images. Full image builds are local
+operations through `build_image.sh`.
 
 Dispatch input controls:
 

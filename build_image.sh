@@ -10,7 +10,7 @@ CLEAN=false
 IMG_SIZE=12000
 KERNEL_ONLY=false
 PATCHES_REF="main"
-KERNEL_PROFILE="ps5-cachyos-bore"
+KERNEL_PROFILE=""
 KERNEL_PROFILE_DRY_RUN=false
 WORKSPACE_ROOT="${PS5_LINUX_WORKSPACE:-$SCRIPT_DIR/work}"
 
@@ -26,7 +26,7 @@ usage() {
     echo "Options:"
     echo "  --distro     Distribution to build: ubuntu2604, arch, cachyos, kali, all (default: ubuntu2604)"
     echo "  --kernel     Path to kernel source directory (default: <workspace>/linux)"
-    echo "  --kernel-profile  Kernel profile: ps5-stable, ps5-cachyos-bore (default: ps5-cachyos-bore)"
+    echo "  --kernel-profile  Kernel profile: ps5-stable, ps5-cachyos-bore (default: ps5-cachyos-bore for cachyos, ps5-stable otherwise)"
     echo "  --kernel-profile-dry-run  Resolve kernel profile metadata and exit"
     echo "  --img-size   Disk image size in MB (default: 12000, 32000 for --distro all, 98304 for kali)"
     echo "  --clean      Remove all cached build artifacts and start from scratch"
@@ -53,6 +53,13 @@ while [[ $# -gt 0 ]]; do
         *) echo "Unknown option: $1"; usage ;;
     esac
 done
+
+if [ -z "$KERNEL_PROFILE" ]; then
+    case "$DISTRO" in
+        cachyos) KERNEL_PROFILE="ps5-cachyos-bore" ;;
+        *) KERNEL_PROFILE="ps5-stable" ;;
+    esac
+fi
 
 PROFILE_FILE="$SCRIPT_DIR/kernel-profiles/$KERNEL_PROFILE.env"
 if [ ! -f "$PROFILE_FILE" ]; then
