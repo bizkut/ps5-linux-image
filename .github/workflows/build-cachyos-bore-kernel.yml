@@ -16,14 +16,14 @@ on:
 
 jobs:
   build:
-    runs-on: self-hosted
+    runs-on: ubuntu-24.04
     timeout-minutes: 720
     permissions:
       contents: write
 
     steps:
       - name: Checkout image builder
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Build CachyOS BORE kernel
         id: build
