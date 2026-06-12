@@ -26,6 +26,12 @@ RUN mkdir -p /root/go/src/github.com/lxc/ && \
     cp /root/go/bin/distrobuilder /usr/local/bin/ && \
     rm -rf /root/go/src /root/go/pkg
 
+# Fedora 41+ base images ship as OCI archives; distrobuilder's fedora-http
+# downloader unpacks them with umoci/skopeo.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    umoci skopeo \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /build
 
 COPY docker/image-builder/entrypoint.sh /entrypoint.sh
