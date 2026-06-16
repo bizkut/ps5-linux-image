@@ -44,6 +44,23 @@ EOF
             cp /repo/distros/${DISTRO}/kali-archive-keyring.asc "$STAGING/"
             cp /kernel-debs/*.deb                           "$STAGING/debs/"
             ;;
+        proxmox)
+            cp /repo/distros/${DISTRO}/grow-rootfs          "$STAGING/"
+            cp /repo/distros/${DISTRO}/grow-rootfs.service  "$STAGING/"
+            cp /repo/distros/${DISTRO}/proxmox-release-bookworm.gpg "$STAGING/"
+            cp /kernel-debs/*.deb                           "$STAGING/debs/"
+            ;;
+        debian)
+            cp /repo/distros/${DISTRO}/grow-rootfs          "$STAGING/"
+            cp /repo/distros/${DISTRO}/grow-rootfs.service  "$STAGING/"
+            cp /kernel-debs/*.deb                           "$STAGING/debs/"
+            ;;
+        fedora)
+            cp /repo/distros/${DISTRO}/grow-rootfs         "$STAGING/"
+            cp /repo/distros/${DISTRO}/grow-rootfs.service "$STAGING/"
+            mkdir -p "$STAGING/rpms"
+            cp /kernel-debs/*.rpm                          "$STAGING/rpms/"
+            ;;
         arch)
             cp /repo/distros/${DISTRO}/grow-rootfs         "$STAGING/"
             cp /repo/distros/arch/grow-rootfs.service      "$STAGING/"
@@ -71,6 +88,7 @@ EOF
     find "$STAGING" -type f \
         ! -path "$STAGING/debs/*" \
         ! -path "$STAGING/pkgs/*" \
+        ! -path "$STAGING/rpms/*" \
         -exec sed -i 's/\r$//' {} +
 
     # --- Build rootfs ---
