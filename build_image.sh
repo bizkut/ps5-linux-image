@@ -9,7 +9,7 @@ KERNEL_SRC=""
 CLEAN=false
 IMG_SIZE=12000
 KERNEL_ONLY=false
-PATCHES_REF="v1.3"
+PATCHES_REF="bluetooth-fix"
 
 MULTI_DISTROS="ubuntu2604 arch cachyos"
 
@@ -42,9 +42,10 @@ while [[ $# -gt 0 ]]; do
 done
 
 LINUX_REPO="https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git"
+LINUX_BRANCH="v7.1.1"
 LINUX_DEFAULT_DIR="$SCRIPT_DIR/work/linux"
 
-PATCHES_REPO="https://github.com/ps5-linux/ps5-linux-patches.git"
+PATCHES_REPO="https://github.com/bizkut/ps5-linux-patches.git"
 PATCHES_DIR="$SCRIPT_DIR/work/ps5-linux-patches"
 
 if [ -z "$KERNEL_SRC" ]; then
@@ -136,12 +137,7 @@ else
     [ "$DISTRO" = "all" ] && echo "                ($MULTI_DISTROS)"
     echo "  Image size:   ${IMG_SIZE}MB"
 fi
-if [ -f "$PATCHES_DIR/.config" ]; then
-    LINUX_BRANCH="v$(grep -m1 "^# Linux/" "$PATCHES_DIR/.config" | grep -oP '\d+\.\d+(\.\d+)?')"
-    echo "  Kernel:       $LINUX_BRANCH"
-else
-    echo "  Kernel:       (will fetch)"
-fi
+echo "  Kernel:       $LINUX_BRANCH"
 echo "  Kernel src:   $KERNEL_SRC"
 echo ""
 echo "Stages:"
@@ -255,8 +251,6 @@ else
                 -v "$(dirname "$dir")":/parent \
                 alpine rm -rf "/parent/$(basename "$dir")"
         done
-        LINUX_BRANCH="v$(grep -m1 "^# Linux/" "$PATCHES_DIR/.config" | grep -oP '\d+\.\d+(\.\d+)?')"
-
         run_stage "Clone kernel $LINUX_BRANCH" \
             git clone --branch "$LINUX_BRANCH" --depth 1 "$LINUX_REPO" "$LINUX_TMP_DIR"
 
