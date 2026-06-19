@@ -23,7 +23,7 @@ usage() {
     echo "  --clean      Remove all cached build artifacts and start from scratch"
     echo "  --clean-only Remove all cached build artifacts and exit"
     echo "  --kernel-only  Build and package the kernel only, then exit"
-    echo "  --patches-ref  Branch, tag, or commit SHA for patches (default: v1.2)"
+    echo "  --patches-ref  Branch, tag, or commit SHA for patches (default: bluetooth-fix)"
     exit 1
 }
 

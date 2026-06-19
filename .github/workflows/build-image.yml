@@ -53,7 +53,7 @@ jobs:
         distro: ${{ fromJson(needs.matrix.outputs.distros) }}
 
     env:
-      CCACHE_DIR: /home/opc/ccache
+      CCACHE_DIR: /home/bizkut/ccache
 
     steps:
       - name: Clean image workspace
