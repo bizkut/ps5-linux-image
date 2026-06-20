@@ -42,8 +42,8 @@ if [ "${MWIFIEX_ENABLED:-false}" = "true" ]; then
     rm -rf /tmp/mwifiex-ps5 /tmp/mwifiex-nxp
     git clone --quiet https://github.com/ps5-linux/ps5-linux-mwifiex.git /tmp/mwifiex-ps5
     git -C /tmp/mwifiex-ps5 checkout --quiet "$MWIFIEX_REF"
-    git clone --quiet --depth 1 --branch "$MWIFIEX_NXP_REF" \
-        https://github.com/nxp-imx/mwifiex.git /tmp/mwifiex-nxp
+    git clone --quiet https://github.com/nxp-imx/mwifiex.git /tmp/mwifiex-nxp
+    git -C /tmp/mwifiex-nxp checkout --quiet "$MWIFIEX_NXP_REF"
     git -C /tmp/mwifiex-nxp apply /tmp/mwifiex-ps5/ps5-iw620.patch
     make -C /tmp/mwifiex-nxp CONFIG_OBJTOOL= KERNELDIR=/src ARCH=x86 -j"$(nproc)"
 
