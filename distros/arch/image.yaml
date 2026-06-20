@@ -39,6 +39,8 @@ packages:
     - pipewire
     - wireplumber
     - pipewire-pulse
+    - bluez
+    - bluez-utils
 
     # Display / GPU (AMD)
     - mesa

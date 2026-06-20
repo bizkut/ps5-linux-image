@@ -14,6 +14,13 @@ if [ "$DISTRO" = "kali" ]; then
     ROOT_LABEL="kali-root"
 fi
 
+install_ps5_bluetooth_defaults() {
+    local root=$1
+
+    install -D -m 0644 /repo/distros/shared/bluetooth-input.conf \
+        "$root/etc/bluetooth/input.conf"
+}
+
 if [ "$SKIP_CHROOT" = "true" ] && [ -d "$CHROOT/bin" ]; then
     echo "=== Reusing cached $DISTRO rootfs ==="
 else
@@ -105,6 +112,8 @@ case "$DISTRO" in
         ln -sf /run/systemd/resolve/stub-resolv.conf "$CHROOT/etc/resolv.conf"
         ;;
 esac
+
+install_ps5_bluetooth_defaults "$CHROOT"
 
 # --- Create GPT disk image ---
 echo "=== Creating ${IMG_SIZE}MB disk image ==="

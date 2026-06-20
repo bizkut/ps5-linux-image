@@ -50,6 +50,7 @@ packages:
     - openssh-server
     - iproute2
     - iputils-ping
+    - bluez
     - curl
     - wget
     - ca-certificates

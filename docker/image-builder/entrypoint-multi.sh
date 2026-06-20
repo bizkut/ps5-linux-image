@@ -11,6 +11,13 @@ EFI_LABEL="boot"
 IMG="/output/ps5-multi.img"
 NUM_DISTROS=$(echo $DISTROS | wc -w)
 
+install_ps5_bluetooth_defaults() {
+    local root=$1
+
+    install -D -m 0644 /repo/distros/shared/bluetooth-input.conf \
+        "$root/etc/bluetooth/input.conf"
+}
+
 # ======================================================================
 # Step 1: Build each distro's rootfs via distrobuilder
 # ======================================================================
@@ -82,6 +89,8 @@ for DISTRO in $DISTROS; do
         # Write distro marker
         echo "$DISTRO" > "$CHROOT/etc/ps5-distro"
     fi
+
+    install_ps5_bluetooth_defaults "$CHROOT"
 
 done
 

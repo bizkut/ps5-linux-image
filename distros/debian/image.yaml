@@ -41,6 +41,7 @@ packages:
     - pipewire-pulse
     - wireplumber
     - pavucontrol
+    - bluez
 
     # GPU
     - mesa-vulkan-drivers

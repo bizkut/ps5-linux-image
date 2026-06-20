@@ -52,6 +52,7 @@ packages:
     - pipewire-pulse
     - wireplumber
     - pavucontrol
+    - bluez
 
     # Networking and remote access
     - network-manager

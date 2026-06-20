@@ -49,6 +49,8 @@ packages:
     - pipewire
     - wireplumber
     - pipewire-pulseaudio
+    - bluez
+    - bluez-tools
 
     # Display / GPU (AMD) — userspace GL/Vulkan only; the kernel amdgpu driver
     # comes from the linux-ps5 rpm. amdgpu is loaded LATE (by udev after pivot),
