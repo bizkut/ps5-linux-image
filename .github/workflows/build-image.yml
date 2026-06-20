@@ -9,6 +9,10 @@ on:
         default: 'ubuntu2604'
         type: choice
         options: [all, ubuntu2604, arch, cachyos, kali, fedora, proxmox, debian]
+      kernel_ref:
+        description: 'Linux stable branch/tag/SHA'
+        default: 'linux-7.1.y'
+        type: string
       mwifiex:
         description: 'Build optional PS5 IW620 mwifiex modules'
         default: false
@@ -26,6 +30,9 @@ on:
       distro:
         type: string
         default: 'ubuntu2604'
+      kernel_ref:
+        type: string
+        default: 'linux-7.1.y'
       mwifiex:
         type: boolean
         default: false
@@ -93,10 +100,11 @@ jobs:
 
       - name: Build ${{ matrix.distro }} image
         run: |
+          KERNEL_REF="${{ inputs.kernel_ref || 'linux-7.1.y' }}"
           MWIFIEX="${{ inputs.mwifiex || false }}"
           MWIFIEX_REF="${{ inputs.mwifiex_ref || 'main' }}"
           MWIFIEX_NXP_REF="${{ inputs.mwifiex_nxp_ref || 'lf-6.18.2_1.0.0' }}"
-          extra_args=()
+          extra_args=(--kernel-ref "$KERNEL_REF")
           if [ "$MWIFIEX" = "true" ]; then
             extra_args+=(--mwifiex --mwifiex-ref "$MWIFIEX_REF" --mwifiex-nxp-ref "$MWIFIEX_NXP_REF")
           fi

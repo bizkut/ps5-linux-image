@@ -6,6 +6,7 @@ export DOCKER_DEFAULT_PLATFORM=linux/amd64
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DISTRO="ubuntu2604"
 KERNEL_SRC=""
+KERNEL_REF="linux-7.1.y"
 CLEAN=false
 IMG_SIZE=12000
 KERNEL_ONLY=false
@@ -22,6 +23,7 @@ usage() {
     echo "Options:"
     echo "  --distro     Distribution to build: ubuntu2604, arch, cachyos, kali, fedora, proxmox, debian, all (default: ubuntu2604)"
     echo "  --kernel     Path to kernel source directory (default: auto-clone to work/linux/)"
+    echo "  --kernel-ref Linux stable branch, tag, or SHA to clone (default: linux-7.1.y)"
     echo "  --img-size   Disk image size in MB (default: 12000, 32000 for --distro all, 98304 for kali)"
     echo "  --clean      Remove all cached build artifacts and start from scratch"
     echo "  --clean-only Remove all cached build artifacts and exit"
@@ -37,6 +39,7 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --distro)    DISTRO="$2";          shift 2 ;;
         --kernel)    KERNEL_SRC="$2";      shift 2 ;;
+        --kernel-ref) [ -n "$2" ] && KERNEL_REF="$2"; shift 2 ;;
         --img-size)  IMG_SIZE="$2";        shift 2 ;;
         --clean)     CLEAN=true;           shift ;;
         --clean-only) CLEAN=true; CLEAN_EXIT=true; shift ;;
@@ -52,7 +55,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 LINUX_REPO="https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git"
-LINUX_BRANCH="v7.1.1"
+LINUX_BRANCH="$KERNEL_REF"
 LINUX_DEFAULT_DIR="$SCRIPT_DIR/work/linux"
 
 PATCHES_REPO="https://github.com/bizkut/ps5-linux-patches.git"
@@ -266,8 +269,14 @@ else
                 -v "$(dirname "$dir")":/parent \
                 alpine rm -rf "/parent/$(basename "$dir")"
         done
-        run_stage "Clone kernel $LINUX_BRANCH" \
-            git clone --branch "$LINUX_BRANCH" --depth 1 "$LINUX_REPO" "$LINUX_TMP_DIR"
+        run_stage "Fetch kernel $LINUX_BRANCH" bash -c '
+            set -e
+            mkdir -p "'"$LINUX_TMP_DIR"'"
+            git -C "'"$LINUX_TMP_DIR"'" init
+            git -C "'"$LINUX_TMP_DIR"'" remote add origin "'"$LINUX_REPO"'"
+            git -C "'"$LINUX_TMP_DIR"'" fetch --depth 1 origin "'"$LINUX_BRANCH"'" || git -C "'"$LINUX_TMP_DIR"'" fetch origin "'"$LINUX_BRANCH"'"
+            git -C "'"$LINUX_TMP_DIR"'" reset --hard FETCH_HEAD
+        '
 
         run_stage "Apply patches" bash -c '
             set -e; shopt -s nullglob
