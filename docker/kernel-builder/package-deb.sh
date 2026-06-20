@@ -45,6 +45,8 @@ if [ -d "$STAGING/headers" ]; then
     ln -sf "$HDR_DEST" "$PKG/lib/modules/$KVER/build"
 fi
 
+depmod -b "$PKG" "$KVER"
+
 cat > "$PKG/DEBIAN/control" << CTRL
 Package: linux-ps5
 Version: $VER
@@ -61,6 +63,9 @@ cat > "$PKG/DEBIAN/postinst" << 'POSTINST'
 set -e
 KVER="$(ls -1t /lib/modules | head -1)"
 echo ">> linux-ps5 postinst: kernel $KVER"
+
+echo ">> Updating module dependency index for $KVER"
+depmod -a "$KVER"
 
 # Rebuild initramfs
 if command -v update-initramfs >/dev/null 2>&1; then

@@ -6,6 +6,9 @@ post_install() {
     KVER="__KVER__"
     echo ">> linux-ps5 post_install: kernel $KVER"
 
+    echo ">> Updating module dependency index for $KVER"
+    depmod -a "$KVER"
+
     # Rebuild initramfs
     if command -v mkinitcpio >/dev/null 2>&1; then
         echo ">> Rebuilding initramfs with mkinitcpio for $KVER"

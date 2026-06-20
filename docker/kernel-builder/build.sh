@@ -75,8 +75,6 @@ for d in /boot/efi /efi /boot; do
     if [ -f "$SRC" ]; then
         install -Dm0644 "$SRC" "$DST"
         echo "ps5-stage-firmware: copied $SRC -> $DST"
-        modprobe -r moal mlan 2>/dev/null || true
-        modprobe moal 2>/dev/null || true
         exit 0
     fi
 done
@@ -89,6 +87,7 @@ EOF
     cat > /out/staging/etc/systemd/system/ps5-stage-firmware.service <<'EOF'
 [Unit]
 Description=Copy PS5 WLAN firmware from EFI partition to /lib/firmware
+DefaultDependencies=no
 After=local-fs.target
 Before=systemd-modules-load.service network-pre.target
 ConditionPathExists=/usr/local/sbin/ps5-stage-firmware
