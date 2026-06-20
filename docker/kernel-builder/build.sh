@@ -45,7 +45,16 @@ if [ "${MWIFIEX_ENABLED:-false}" = "true" ]; then
     git clone --quiet https://github.com/nxp-imx/mwifiex.git /tmp/mwifiex-nxp
     git -C /tmp/mwifiex-nxp checkout --quiet "$MWIFIEX_NXP_REF"
     git -C /tmp/mwifiex-nxp apply /tmp/mwifiex-ps5/ps5-iw620.patch
-    make -C /tmp/mwifiex-nxp CONFIG_OBJTOOL= KERNELDIR=/src ARCH=x86 -j"$(nproc)"
+    make -C /tmp/mwifiex-nxp KERNELDIR=/src ARCH=x86 -j"$(nproc)"
+
+    for mod in /tmp/mwifiex-nxp/mlan.ko /tmp/mwifiex-nxp/moal.ko; do
+        if nm -u "$mod" | grep -q '__x86_return_thunk' &&
+           ! readelf -S "$mod" | grep -q '\.return_sites'; then
+            echo "ERROR: $(basename "$mod") references __x86_return_thunk but has no .return_sites section" >&2
+            echo "       Build it with kernel objtool enabled so x86 return thunks can be patched at module load." >&2
+            exit 1
+        fi
+    done
 
     mkdir -p "/out/staging/lib/modules/$KVER/extra/ps5-iw620"
     cp /tmp/mwifiex-nxp/mlan.ko /tmp/mwifiex-nxp/moal.ko \
