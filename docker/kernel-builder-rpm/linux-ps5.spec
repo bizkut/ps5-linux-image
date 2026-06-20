@@ -31,6 +31,13 @@ cp -a %{stagedir}/. %{buildroot}/
 /boot/System.map-%{kver}
 /boot/config-%{kver}
 /usr/lib/modules/%{kver}
+%if 0%{?with_mwifiex}
+%config(noreplace) /etc/modprobe.d/ps5-iw620.conf
+%config(noreplace) /etc/modules-load.d/ps5-iw620.conf
+/etc/systemd/system/ps5-stage-firmware.service
+/etc/systemd/system/sysinit.target.wants/ps5-stage-firmware.service
+/usr/local/sbin/ps5-stage-firmware
+%endif
 
 %post
 echo ">> linux-ps5 post-install: kernel %{kver}"

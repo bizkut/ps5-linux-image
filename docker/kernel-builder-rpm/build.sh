@@ -29,6 +29,13 @@ cp /out/staging/.config      "$STAGE/boot/config-$KVER"
 mkdir -p "$STAGE/usr/lib/modules"
 cp -a "/out/staging/lib/modules/$KVER" "$STAGE/usr/lib/modules/"
 
+for staged_dir in etc usr/local; do
+    if [ -d "/out/staging/$staged_dir" ]; then
+        mkdir -p "$STAGE/$(dirname "$staged_dir")"
+        cp -a "/out/staging/$staged_dir" "$STAGE/$staged_dir"
+    fi
+done
+
 # Build headers for out-of-tree module builds. UAPI headers (/usr/include)
 # are intentionally excluded — they would conflict with Fedora's
 # kernel-headers package.
@@ -37,11 +44,17 @@ if [ -d "/out/staging/headers/lib/modules/$KVER/build" ]; then
           "$STAGE/usr/lib/modules/$KVER/build"
 fi
 
+RPM_DEFINES=()
+if [ -f "$STAGE/etc/modprobe.d/ps5-iw620.conf" ]; then
+    RPM_DEFINES+=(--define "with_mwifiex 1")
+fi
+
 rpmbuild -bb \
     --define "_topdir $RPMROOT/rpmbuild" \
     --define "stagedir $STAGE" \
     --define "kver $KVER" \
     --define "ver $VERSION" \
+    "${RPM_DEFINES[@]}" \
     /linux-ps5.spec
 
 cp "$RPMROOT/rpmbuild/RPMS/x86_64/${PKGNAME}-${VERSION}-1.x86_64.rpm" /out/

@@ -18,6 +18,13 @@ cp "$STAGING/System.map"    "$PKG/boot/System.map-$KVER"
 cp "$STAGING/.config"       "$PKG/boot/config-$KVER"
 cp -a "$STAGING/lib/modules/$KVER" "$PKG/lib/modules/"
 
+for staged_dir in etc usr/local; do
+    if [ -d "$STAGING/$staged_dir" ]; then
+        mkdir -p "$PKG/$(dirname "$staged_dir")"
+        cp -a "$STAGING/$staged_dir" "$PKG/$staged_dir"
+    fi
+done
+
 # Kernel headers (for out-of-tree module builds)
 if [ -d "$STAGING/headers" ]; then
     # $PKG/usr may already exist from other staged files, so merge contents

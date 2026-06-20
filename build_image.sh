@@ -10,6 +10,9 @@ CLEAN=false
 IMG_SIZE=12000
 KERNEL_ONLY=false
 PATCHES_REF="bluetooth-fix"
+MWIFIEX_ENABLED=false
+MWIFIEX_REF="main"
+MWIFIEX_NXP_REF="lf-6.18.2_1.0.0"
 
 MULTI_DISTROS="ubuntu2604 arch cachyos"
 
@@ -24,6 +27,9 @@ usage() {
     echo "  --clean-only Remove all cached build artifacts and exit"
     echo "  --kernel-only  Build and package the kernel only, then exit"
     echo "  --patches-ref  Branch, tag, or commit SHA for patches (default: bluetooth-fix)"
+    echo "  --mwifiex      Build optional PS5 IW620 mwifiex out-of-tree modules"
+    echo "  --mwifiex-ref  Branch, tag, or commit SHA for ps5-linux-mwifiex (default: main)"
+    echo "  --mwifiex-nxp-ref  Branch, tag, or commit SHA for nxp-imx/mwifiex (default: lf-6.18.2_1.0.0)"
     exit 1
 }
 
@@ -36,6 +42,10 @@ while [[ $# -gt 0 ]]; do
         --clean-only) CLEAN=true; CLEAN_EXIT=true; shift ;;
         --kernel-only) KERNEL_ONLY=true;   shift ;;
         --patches-ref) [ -n "$2" ] && PATCHES_REF="$2"; shift 2 ;;
+        --mwifiex)   MWIFIEX_ENABLED=true; shift ;;
+        --no-mwifiex) MWIFIEX_ENABLED=false; shift ;;
+        --mwifiex-ref) [ -n "$2" ] && MWIFIEX_REF="$2"; shift 2 ;;
+        --mwifiex-nxp-ref) [ -n "$2" ] && MWIFIEX_NXP_REF="$2"; shift 2 ;;
         -h|--help)   usage ;;
         *) echo "Unknown option: $1"; usage ;;
     esac
@@ -139,6 +149,11 @@ else
 fi
 echo "  Kernel:       $LINUX_BRANCH"
 echo "  Kernel src:   $KERNEL_SRC"
+echo "  mwifiex:      $MWIFIEX_ENABLED"
+if [ "$MWIFIEX_ENABLED" = true ]; then
+    echo "  mwifiex ref:  $MWIFIEX_REF"
+    echo "  NXP ref:      $MWIFIEX_NXP_REF"
+fi
 echo ""
 echo "Stages:"
 if [ "$SKIP_KERNEL" = true ]; then
@@ -282,6 +297,9 @@ else
 
     run_stage "Compile kernel" \
         docker run --rm --platform "$KERNEL_BUILDER_PLATFORM" --name "$DOCKER_NAME" \
+            -e MWIFIEX_ENABLED="$MWIFIEX_ENABLED" \
+            -e MWIFIEX_REF="$MWIFIEX_REF" \
+            -e MWIFIEX_NXP_REF="$MWIFIEX_NXP_REF" \
             -v "$KERNEL_SRC":/src \
             -v "$KERNEL_OUT":/out \
             -v "$CCACHE_DIR":/ccache \

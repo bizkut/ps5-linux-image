@@ -28,6 +28,13 @@ cp /out/staging/.config      "$STAGING/boot/config-$KVER"
 mkdir -p "$STAGING/usr/lib/modules"
 cp -a "/out/staging/lib/modules/$KVER" "$STAGING/usr/lib/modules/"
 
+for staged_dir in etc usr/local; do
+    if [ -d "/out/staging/$staged_dir" ]; then
+        mkdir -p "$STAGING/$(dirname "$staged_dir")"
+        cp -a "/out/staging/$staged_dir" "$STAGING/$staged_dir"
+    fi
+done
+
 # Kernel headers (for out-of-tree module builds)
 if [ -d /out/staging/headers ]; then
     # UAPI headers (/usr/include/linux/, /usr/include/asm/, etc.)
