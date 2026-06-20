@@ -12,8 +12,8 @@ IMG_SIZE=12000
 KERNEL_ONLY=false
 PATCHES_REF="bluetooth-fix"
 MWIFIEX_ENABLED=false
-MWIFIEX_REF="main"
-MWIFIEX_NXP_REF="lf-6.18.2_1.0.0"
+MWIFIEX_REF="linux-7.1.y"
+MWIFIEX_NXP_REF="lf-6.18.20_2.0.0"
 
 MULTI_DISTROS="ubuntu2604 arch cachyos"
 
@@ -30,8 +30,8 @@ usage() {
     echo "  --kernel-only  Build and package the kernel only, then exit"
     echo "  --patches-ref  Branch, tag, or commit SHA for patches (default: bluetooth-fix)"
     echo "  --mwifiex      Build optional PS5 IW620 mwifiex out-of-tree modules"
-    echo "  --mwifiex-ref  Branch, tag, or commit SHA for ps5-linux-mwifiex (default: main)"
-    echo "  --mwifiex-nxp-ref  Branch, tag, or commit SHA for nxp-imx/mwifiex (default: lf-6.18.2_1.0.0)"
+    echo "  --mwifiex-ref  Branch, tag, or commit SHA for ps5-linux-mwifiex (default: linux-7.1.y)"
+    echo "  --mwifiex-nxp-ref  Branch, tag, or commit SHA for nxp-imx/mwifiex (default: lf-6.18.20_2.0.0)"
     exit 1
 }
 

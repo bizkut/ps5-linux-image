@@ -35,12 +35,12 @@ export srctree=/src SRCARCH=x86
 CC="${CROSS_COMPILE}gcc" HOSTCC=gcc MAKE=make /src/scripts/package/install-extmod-build "$HDR/lib/modules/$KVER/build"
 
 if [ "${MWIFIEX_ENABLED:-false}" = "true" ]; then
-    MWIFIEX_REF="${MWIFIEX_REF:-main}"
-    MWIFIEX_NXP_REF="${MWIFIEX_NXP_REF:-lf-6.18.2_1.0.0}"
+    MWIFIEX_REF="${MWIFIEX_REF:-linux-7.1.y}"
+    MWIFIEX_NXP_REF="${MWIFIEX_NXP_REF:-lf-6.18.20_2.0.0}"
 
     echo "=== Build PS5 mwifiex (patch $MWIFIEX_REF on NXP $MWIFIEX_NXP_REF) ==="
     rm -rf /tmp/mwifiex-ps5 /tmp/mwifiex-nxp
-    git clone --quiet https://github.com/ps5-linux/ps5-linux-mwifiex.git /tmp/mwifiex-ps5
+    git clone --quiet https://github.com/bizkut/ps5-linux-mwifiex.git /tmp/mwifiex-ps5
     git -C /tmp/mwifiex-ps5 checkout --quiet "$MWIFIEX_REF"
     git clone --quiet https://github.com/nxp-imx/mwifiex.git /tmp/mwifiex-nxp
     git -C /tmp/mwifiex-nxp checkout --quiet "$MWIFIEX_NXP_REF"
