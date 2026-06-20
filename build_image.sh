@@ -319,6 +319,8 @@ else
     case "$FORMAT" in deb|all)
         run_stage "Package kernel (.deb)" \
             docker run --rm --platform "$KERNEL_BUILDER_PLATFORM" --name "$DOCKER_NAME" \
+                -e KERNEL_PACKAGE_VERSION="${KERNEL_PACKAGE_VERSION:-}" \
+                -e KERNEL_PACKAGE_REVISION="${KERNEL_PACKAGE_REVISION:-}" \
                 -v "$KERNEL_SRC":/src \
                 -v "$KERNEL_OUT":/out \
                 -v "$CCACHE_DIR":/ccache \

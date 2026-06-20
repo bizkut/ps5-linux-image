@@ -5,7 +5,14 @@ set -e
 
 STAGING="/out/staging"
 KVER=$(ls -1 "$STAGING/lib/modules" | head -1)
-VER="${KVER%%-*}"
+BASE_VER="${KVER%%-*}"
+if [ -n "${KERNEL_PACKAGE_VERSION:-}" ]; then
+    VER="$KERNEL_PACKAGE_VERSION"
+elif [ -n "${KERNEL_PACKAGE_REVISION:-}" ]; then
+    VER="${BASE_VER}-${KERNEL_PACKAGE_REVISION}"
+else
+    VER="$BASE_VER"
+fi
 ARCH=amd64
 
 PKG=$(mktemp -d)
