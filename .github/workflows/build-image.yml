@@ -130,6 +130,18 @@ jobs:
           xz -T0 -4 -c image/output/ps5-${{ matrix.distro }}.img \
             > image/output/ps5-${{ matrix.distro }}.img.xz
 
+      - name: Check R2
+        env:
+          RCLONE_CONFIG_R2_TYPE: s3
+          RCLONE_CONFIG_R2_PROVIDER: Cloudflare
+          RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          RCLONE_CONFIG_R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          RCLONE_CONFIG_R2_NO_CHECK_BUCKET: true
+        run: |
+          rclone version
+          rclone lsf "r2:${{ secrets.R2_BUCKET }}" --max-depth 1 >/dev/null
+
       - name: Upload to R2
         if: github.event_name != 'pull_request' && github.event_name != 'pull_request_target'
         env:
