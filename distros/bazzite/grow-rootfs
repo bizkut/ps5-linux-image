@@ -1,7 +1,6 @@
 #!/bin/bash
 # Grows the root partition and filesystem to fill the disk.
 # Runs once on first boot, then disables itself.
-# If resize fails, the service stays enabled and retries next boot.
 
 ROOT_DEV=$(findmnt -no SOURCE /) || { echo "Cannot find root device"; exit 1; }
 DISK=$(lsblk -ndo PKNAME "$ROOT_DEV")

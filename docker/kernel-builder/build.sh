@@ -35,17 +35,21 @@ export srctree=/src SRCARCH=x86
 CC="${CROSS_COMPILE}gcc" HOSTCC=gcc MAKE=make /src/scripts/package/install-extmod-build "$HDR/lib/modules/$KVER/build"
 
 if [ "${MWIFIEX_ENABLED:-false}" = "true" ]; then
+    MWIFIEX_REPO="${MWIFIEX_REPO:-https://github.com/bizkut/ps5-linux-mwifiex.git}"
     MWIFIEX_REF="${MWIFIEX_REF:-linux-7.1.y}"
+    MWIFIEX_NXP_REPO="${MWIFIEX_NXP_REPO:-https://github.com/nxp-imx/mwifiex.git}"
     MWIFIEX_NXP_REF="${MWIFIEX_NXP_REF:-lf-6.18.20_2.0.0}"
 
     echo "=== Build PS5 mwifiex (patch $MWIFIEX_REF on NXP $MWIFIEX_NXP_REF) ==="
     rm -rf /tmp/mwifiex-ps5 /tmp/mwifiex-nxp
-    git clone --quiet https://github.com/bizkut/ps5-linux-mwifiex.git /tmp/mwifiex-ps5
+    git clone --quiet "$MWIFIEX_REPO" /tmp/mwifiex-ps5
     git -C /tmp/mwifiex-ps5 checkout --quiet "$MWIFIEX_REF"
-    git clone --quiet https://github.com/nxp-imx/mwifiex.git /tmp/mwifiex-nxp
+    git clone --quiet "$MWIFIEX_NXP_REPO" /tmp/mwifiex-nxp
     git -C /tmp/mwifiex-nxp checkout --quiet "$MWIFIEX_NXP_REF"
     git -C /tmp/mwifiex-nxp apply /tmp/mwifiex-ps5/ps5-iw620.patch
     make -C /tmp/mwifiex-nxp KERNELDIR=/src ARCH=x86 -j"$(nproc)"
+    [ -f /tmp/mwifiex-nxp/mlan.ko ] && [ -f /tmp/mwifiex-nxp/moal.ko ] \
+        || { echo "ERROR: mwifiex build did not produce mlan.ko/moal.ko"; exit 1; }
 
     for mod in /tmp/mwifiex-nxp/mlan.ko /tmp/mwifiex-nxp/moal.ko; do
         if nm -u "$mod" | grep -q '__x86_return_thunk' &&
@@ -56,9 +60,10 @@ if [ "${MWIFIEX_ENABLED:-false}" = "true" ]; then
         fi
     done
 
-    mkdir -p "/out/staging/lib/modules/$KVER/extra/ps5-iw620"
-    cp /tmp/mwifiex-nxp/mlan.ko /tmp/mwifiex-nxp/moal.ko \
-        "/out/staging/lib/modules/$KVER/extra/ps5-iw620/"
+    EXTRA_DIR="/out/staging/lib/modules/$KVER/extra/ps5-iw620"
+    mkdir -p "$EXTRA_DIR"
+    install -m 0644 /tmp/mwifiex-nxp/mlan.ko "$EXTRA_DIR/mlan.ko"
+    install -m 0644 /tmp/mwifiex-nxp/moal.ko "$EXTRA_DIR/moal.ko"
 
     mkdir -p /out/staging/etc/modprobe.d
     cat > /out/staging/etc/modprobe.d/ps5-iw620.conf <<MODPROBE
@@ -114,6 +119,7 @@ EOF
 
     echo "$MWIFIEX_REF" > /out/staging/mwifiex-ref
     echo "$MWIFIEX_NXP_REF" > /out/staging/mwifiex-nxp-ref
+    depmod -b /out/staging "$KVER"
 fi
 
 echo "=== Build artifacts staged in /out/staging ==="
