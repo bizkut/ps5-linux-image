@@ -8,7 +8,7 @@ on:
         description: 'Distribution'
         default: 'ubuntu2604'
         type: choice
-        options: [all, ubuntu2604, arch, cachyos, fedora, proxmox, debian]
+        options: [all, ubuntu2604, arch, cachyos, fedora, proxmox, debian, bazzite, bazzite-deck, batocera]
       kernel_ref:
         description: 'Linux stable branch/tag/SHA'
         default: 'linux-7.1.y'
@@ -62,7 +62,7 @@ jobs:
         run: |
           INPUT="${{ inputs.distro || 'ubuntu2604' }}"
           if [ "$INPUT" = "all" ]; then
-            echo 'distros=["ubuntu2604","arch","cachyos","fedora","proxmox","debian"]' >> "$GITHUB_OUTPUT"
+            echo 'distros=["ubuntu2604","arch","cachyos","fedora","proxmox","debian","bazzite","bazzite-deck","batocera"]' >> "$GITHUB_OUTPUT"
           else
             echo "distros=[\"$INPUT\"]" >> "$GITHUB_OUTPUT"
           fi
@@ -76,7 +76,7 @@ jobs:
 
     strategy:
       fail-fast: true
-      max-parallel: 1
+      max-parallel: 5
       matrix:
         distro: ${{ fromJson(needs.matrix.outputs.distros) }}
 
