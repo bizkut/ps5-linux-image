@@ -260,7 +260,7 @@ jobs:
               'PS5 Linux images — built from latest `main`.',
               '',
               `Kernel: \`${kver}\``,
-              `Patches: [\`${psha}\`](https://github.com/ps5-linux/ps5-linux-patches/commit/${psha})`,
+              `Patches: [\`${psha}\`](https://github.com/bizkut/ps5-linux-patches/commit/${psha})`,
               `Built: \`${ts}\``,
               '',
               '| Image | Download |',
