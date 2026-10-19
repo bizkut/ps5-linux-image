@@ -63,6 +63,8 @@ sudo dd if=output/ps5-ubuntu2604.img of=/dev/sdX bs=4M status=progress
 | `--kernel-only` | Build and package the kernel only, then exit | off |
 | `--patches-ref` | Branch, tag, or commit SHA for PS5 kernel patches | `main` |
 
+Set the `PATCHES_REPO` environment variable to select a different patch repository; unset or empty values use `https://github.com/ps5-linux/ps5-linux-patches.git`. Fork CI sets this to its own patch repository URL and uses `--patches-ref` to select the exact fork revision.
+
 ## Caching
 
 The build automatically skips stages that have already completed:
@@ -71,7 +73,7 @@ The build automatically skips stages that have already completed:
 - **Kernel packages** — reused if `.deb`/`.pkg.tar.zst` files exist in `linux-bin/`
 - **Root filesystem** — reused if chroot directories are populated
 
-Use `--clean` to wipe everything and rebuild from scratch. Existing cached kernel sources and packages are not updated when defaults or `--patches-ref` change; use `--clean` to switch them to Linux 7.2.11 and the `main` branches (or your chosen patch ref). The build will also suggest `--clean` if a stage fails.
+Use `--clean` to wipe everything and rebuild from scratch. Existing cached kernel sources and packages are not updated when defaults, `PATCHES_REPO`, or `--patches-ref` change; use `--clean` to switch them to Linux 7.2.11 and the `main` branches (or your chosen patch repository and ref). The build will also suggest `--clean` if a stage fails.
 
 ## Build Output
 

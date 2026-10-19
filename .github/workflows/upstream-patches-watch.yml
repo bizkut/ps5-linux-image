@@ -27,7 +27,7 @@ jobs:
             const buf = Buffer.from(file.data.content, 'base64');
             let body = buf.toString();
 
-            const patchesRepo = (body.match(/^PATCHES_REPO="([^"]+)"/m) || [])[1];
+            const patchesRepo = (body.match(/^PATCHES_REPO="\$\{PATCHES_REPO:-([^"}]+)\}"$/m) || [])[1];
             if (patchesRepo !== 'https://github.com/ps5-linux/ps5-linux-patches.git') {
               core.info(`PATCHES_REPO is a fork (${patchesRepo}) — skipping auto-bump.`);
               return;
