@@ -1,0 +1,99 @@
+Context-only rebase of the upstream Linux 7.2.5 PS5 patch to Linux 7.2.11.
+Keep the stable Bluetooth flags, NXP interface entries, and AMD I2C resource
+cleanup as unchanged context, leaving all upstream PS5 additions untouched.
+Apply after resetting the upstream checkout and before applying its linux.patch.
+
+--- a/linux.patch
++++ b/linux.patch
+@@ -1112,15 +1112,25 @@
+ index 184e95c1625e..d53b57767b71 100644
+ --- a/drivers/bluetooth/btusb.c
+ +++ b/drivers/bluetooth/btusb.c
+-@@ -67,6 +67,9 @@ static struct usb_driver btusb_driver;
++@@ -67,16 +67,19 @@ static struct usb_driver btusb_driver;
+  #define BTUSB_INTEL_NO_WBS_SUPPORT	BIT(26)
+  #define BTUSB_ACTIONS_SEMI		BIT(27)
+  #define BTUSB_BARROT			BIT(28)
++ #define BTUSB_BROKEN_EXT_SCAN		BIT(29)
+ +#define BTUSB_BROKEN_LE_DEFAULT_PHY	BIT(30)
+ +#define BTUSB_NO_AUTOSUSPEND		BIT(31)
+ +#define BTUSB_IFNUM_0			BIT(32)
+  
+  static const struct usb_device_id btusb_table[] = {
++ 	/*
++ 	 * NXP IW610 (0471:0215): the composite device reports Bluetooth
++ 	 * class at the whole-device level, so the generic entry below
++ 	 * would also match this WiFi vendor interface. Ignore it here
++ 	 * first so mwifiex-nxp can bind it instead.
++ 	 */
++ 	{ USB_DEVICE_AND_INTERFACE_INFO(0x0471, 0x0215, 0xff, 0xff, 0xff),
++ 	  .driver_info = BTUSB_IGNORE },
++ 
+  	/* Generic Bluetooth USB device */
+ @@ -172,6 +175,13 @@ static const struct usb_device_id btusb_table[] = {
+  	{ USB_DEVICE(0x8087, 0x0a5a),
+@@ -1136,15 +1146,23 @@
+  	{ }	/* Terminating entry */
+  };
+  
+-@@ -472,6 +482,10 @@ static const struct usb_device_id quirks_table[] = {
++@@ -472,14 +482,18 @@ static const struct usb_device_id quirks_table[] = {
+  	{ USB_DEVICE(0x1286, 0x2044), .driver_info = BTUSB_MARVELL },
+  	{ USB_DEVICE(0x1286, 0x2046), .driver_info = BTUSB_MARVELL },
+  	{ USB_DEVICE(0x1286, 0x204e), .driver_info = BTUSB_MARVELL },
+ +	{ USB_DEVICE(0x1286, 0x2059), .driver_info = BTUSB_MARVELL |
+ +						     BTUSB_IFNUM_0 |
+ +						     BTUSB_BROKEN_LE_DEFAULT_PHY |
+ +						     BTUSB_NO_AUTOSUSPEND },
+  
++ 	/*
++ 	 * NXP IW610 BT interfaces (Marvell-lineage silicon, same quirk as
++ 	 * the 0x1286 entries above). Scoped to the BT interface class,
++ 	 * not just VID/PID -- see the btusb_table entry above.
++ 	 */
++ 	{ USB_DEVICE_AND_INTERFACE_INFO(0x0471, 0x0215, 0xe0, 0x01, 0x01),
++ 	  .driver_info = BTUSB_MARVELL },
++ 
+  	/* Intel Bluetooth devices */
+  	{ USB_DEVICE(0x8087, 0x0025), .driver_info = BTUSB_INTEL_COMBINED },
+ @@ -4089,6 +4103,15 @@ static int btusb_probe(struct usb_interface *intf,
+@@ -1163,10 +1181,13 @@
+  	if (id->driver_info == BTUSB_IGNORE)
+  		return -ENODEV;
+  
+-@@ -4366,6 +4389,9 @@ static int btusb_probe(struct usb_interface *intf,
++@@ -4366,9 +4389,12 @@ static int btusb_probe(struct usb_interface *intf,
+  	if (id->driver_info & BTUSB_INVALID_LE_STATES)
+  		hci_set_quirk(hdev, HCI_QUIRK_BROKEN_LE_STATES);
+  
++ 	if (id->driver_info & BTUSB_BROKEN_EXT_SCAN)
++ 		hci_set_quirk(hdev, HCI_QUIRK_BROKEN_EXT_SCAN);
++ 
+ +	if (id->driver_info & BTUSB_BROKEN_LE_DEFAULT_PHY)
+ +		hci_set_quirk(hdev, HCI_QUIRK_BROKEN_SET_DEFAULT_PHY);
+ +
+@@ -1781,19 +1802,22 @@
+ @@ -3288,7 +3292,10 @@ static int dm_hw_init(struct amdgpu_ip_block *ip_block)
+  	r = amdgpu_dm_init(adev);
+  	if (r)
+- 		return r;
++ 		goto err_release_i2c;
+ +#ifndef CONFIG_X86_PS5
+ +	/* HPD is not supported. */
+  	amdgpu_dm_hpd_init(adev);
+ +#endif
+  
+  	r = dm_oem_i2c_hw_init(adev);
+  	if (r)
+-@@ -3309,7 +3316,10 @@ static int dm_hw_fini(struct amdgpu_ip_block *ip_block)
++@@ -3309,10 +3316,13 @@ static int dm_hw_fini(struct amdgpu_ip_block *ip_block)
+  {
+  	struct amdgpu_device *adev = ip_block->adev;
+  
++ 	if (adev->dm.i2c_devres_group)
++ 		devres_release_group(adev->dev, adev->dm.i2c_devres_group);
++ 
+ +#ifndef CONFIG_X86_PS5
+ +	/* HPD is not supported. */
+  	amdgpu_dm_hpd_fini(adev);
+ +#endif

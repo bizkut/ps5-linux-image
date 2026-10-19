@@ -38,7 +38,13 @@ OR
 ./build_image.sh --distro all
 ```
 
-The script auto-clones the kernel source, applies PS5 patches, compiles, and builds the image. Subsequent runs reuse cached artifacts automatically. Press Ctrl+C at any time to abort cleanly.
+The script auto-clones Linux **7.2.11** (`v7.2.11`) to `work/linux/`, applies patches from the `main` branch of [`ps5-linux/ps5-linux-patches`](https://github.com/ps5-linux/ps5-linux-patches), compiles, and builds the image. The PS5 mwifiex driver also uses the `main` branch of [`ps5-linux/ps5-linux-mwifiex`](https://github.com/ps5-linux/ps5-linux-mwifiex). The kernel target is fixed independently of the patch set's `.config` version; `--patches-ref` changes only the patch revision.
+
+Before applying the kernel patches, `patches/linux-7.2.11.patch` strictly rebases the upstream patch context to preserve Linux 7.2.11's Bluetooth flag and AMD I2C resource-cleanup fixes alongside all upstream PS5 changes. Alternate `--patches-ref` revisions must be compatible with this local context rebase and the Linux 7.2.11 target; incompatible revisions fail without a fallback.
+
+During kernel compilation, `work/ps5-linux-patches/` is mounted read-only at `/ps5-linux-patches` alongside the kernel source at `/src`. This keeps the upstream PS5 AMD firmware available through the configured `../ps5-linux-patches/firmware` path without disabling embedded firmware.
+
+Subsequent runs reuse cached artifacts automatically. Press Ctrl+C at any time to abort cleanly.
 
 ## Flash to USB
 
@@ -51,11 +57,11 @@ sudo dd if=output/ps5-ubuntu2604.img of=/dev/sdX bs=4M status=progress
 | Flag | Description | Default |
 |------|-------------|---------|
 | `--distro` | `ubuntu2604`, `arch`, `cachyos`, `fedora`, or `all` | `ubuntu2604` |
-| `--kernel` | Path to kernel source directory | auto-clone version selected by PS5 patch set |
+| `--kernel` | Path to kernel source directory | auto-clone Linux `v7.2.11` to `work/linux/` |
 | `--img-size` | Disk image size in MB | `12000` (`32000` for `all`) |
 | `--clean` | Remove all cached build artifacts and start fresh | off |
 | `--kernel-only` | Build and package the kernel only, then exit | off |
-| `--patches-ref` | Branch, tag, or commit SHA for patches | `v1.2` |
+| `--patches-ref` | Branch, tag, or commit SHA for PS5 kernel patches | `main` |
 
 ## Caching
 
@@ -65,7 +71,7 @@ The build automatically skips stages that have already completed:
 - **Kernel packages** — reused if `.deb`/`.pkg.tar.zst` files exist in `linux-bin/`
 - **Root filesystem** — reused if chroot directories are populated
 
-Use `--clean` to wipe everything and rebuild from scratch. The build will also suggest `--clean` if a stage fails.
+Use `--clean` to wipe everything and rebuild from scratch. Existing cached kernel sources and packages are not updated when defaults or `--patches-ref` change; use `--clean` to switch them to Linux 7.2.11 and the `main` branches (or your chosen patch ref). The build will also suggest `--clean` if a stage fails.
 
 ## Build Output
 
@@ -119,7 +125,7 @@ Use `--kernel-only` to compile the PS5 kernel and produce installable packages w
 ```bash
 ./build_image.sh --kernel-only                                # .deb (default)
 ./build_image.sh --kernel-only --distro all                   # .deb + .pkg.tar.zst
-./build_image.sh --kernel-only --patches-ref main             # fetch from specific branch/tag
+./build_image.sh --kernel-only --patches-ref main             # explicitly select the patches branch
 ./build_image.sh --kernel-only --clean                        # wipe and rebuild from scratch
 ```
 
@@ -128,6 +134,8 @@ Output packages are written to `linux-bin/`. Install on a running PS5 Linux syst
 ```bash
 sudo dpkg -i linux-bin/linux-ps5_*.deb
 ```
+
+The Debian package's post-install script builds the initramfs for the packaged kernel release using the available initramfs tool and, if `/boot/efi` exists, copies that release's kernel and initramfs there as `bzImage` and `initrd.img`. It uses the packaged release, not whichever directory in `/lib/modules` is newest.
 
 ## Directory Layout
 

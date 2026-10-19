@@ -9,7 +9,8 @@ KERNEL_SRC=""
 CLEAN=false
 IMG_SIZE=12000
 KERNEL_ONLY=false
-PATCHES_REF="kernel-7.1.7-56922cf"
+PATCHES_REF="main"
+LINUX_BRANCH="v7.2.11"
 
 MULTI_DISTROS="ubuntu2604 arch cachyos"
 
@@ -18,12 +19,12 @@ usage() {
     echo ""
     echo "Options:"
     echo "  --distro     Distribution to build: ubuntu2604, arch, cachyos, fedora, proxmox, debian, bazzite, bazzite-deck, batocera, all (default: ubuntu2604)"
-    echo "  --kernel     Path to kernel source directory (default: auto-clone to work/linux/)"
+    echo "  --kernel     Path to kernel source directory (default: auto-clone $LINUX_BRANCH to work/linux/)"
     echo "  --img-size   Disk image size in MB (default: 12000, 32000 for --distro all)"
     echo "  --clean      Remove all cached build artifacts and start from scratch"
     echo "  --clean-only Remove all cached build artifacts and exit"
     echo "  --kernel-only  Build and package the kernel only, then exit"
-    echo "  --patches-ref  Branch, tag, or commit SHA for patches (default: v1.2)"
+    echo "  --patches-ref  Branch, tag, or commit SHA for patches (default: $PATCHES_REF)"
     exit 1
 }
 
@@ -156,12 +157,7 @@ else
     [ "$DISTRO" = "all" ] && echo "                ($MULTI_DISTROS)"
     echo "  Image size:   ${IMG_SIZE}MB"
 fi
-if [ -f "$PATCHES_DIR/.config" ]; then
-    LINUX_BRANCH="v$(sed -nE 's/^# Linux\/[^ ]+ ([0-9]+\.[0-9]+(\.[0-9]+)?) .*/\1/p' "$PATCHES_DIR/.config" | head -1)"
-    echo "  Kernel:       $LINUX_BRANCH"
-else
-    echo "  Kernel:       (will fetch)"
-fi
+echo "  Kernel:       $LINUX_BRANCH"
 echo "  Kernel src:   $KERNEL_SRC"
 echo ""
 echo "Stages:"
@@ -269,13 +265,15 @@ else
             git fetch --depth 1 origin "'"$PATCHES_REF"'" || git fetch origin "'"$PATCHES_REF"'"
             git reset --hard FETCH_HEAD
         '
+        run_stage "Rebase patch context for $LINUX_BRANCH" \
+            git -C "$PATCHES_DIR" apply "$SCRIPT_DIR/patches/linux-7.2.11.patch"
+
         LINUX_TMP_DIR="${LINUX_DEFAULT_DIR}.tmp"
         for dir in "$LINUX_TMP_DIR" "$LINUX_DEFAULT_DIR"; do
             [ -d "$dir" ] && docker run --rm \
                 -v "$(dirname "$dir")":/parent \
                 alpine rm -rf "/parent/$(basename "$dir")"
         done
-        LINUX_BRANCH="v$(sed -nE 's/^# Linux\/[^ ]+ ([0-9]+\.[0-9]+(\.[0-9]+)?) .*/\1/p' "$PATCHES_DIR/.config" | head -1)"
 
         run_stage "Clone kernel $LINUX_BRANCH" \
             git clone --branch "$LINUX_BRANCH" --depth 1 "$LINUX_REPO" "$LINUX_TMP_DIR"
@@ -309,6 +307,7 @@ else
     run_stage "Compile kernel" \
         docker run --rm --platform "$KERNEL_BUILDER_PLATFORM" --name "$DOCKER_NAME" \
             -v "$KERNEL_SRC":/src \
+            -v "$PATCHES_DIR":/ps5-linux-patches:ro \
             -v "$KERNEL_OUT":/out \
             -v "$CCACHE_DIR":/ccache \
             ps5-kernel-builder

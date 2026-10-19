@@ -50,10 +50,8 @@ Replaces: linux-image-$KVER, linux-headers-$KVER, linux-libc-dev
 Description: PS5 Linux kernel $KVER (image + modules + headers + libc-dev)
 CTRL
 
-cat > "$PKG/DEBIAN/postinst" << 'POSTINST'
-#!/bin/bash
-set -e
-KVER="$(ls -1t /lib/modules | head -1)"
+printf '#!/bin/bash\nset -e\nKVER=%q\n' "$KVER" > "$PKG/DEBIAN/postinst"
+cat >> "$PKG/DEBIAN/postinst" << 'POSTINST'
 echo ">> linux-ps5 postinst: kernel $KVER"
 
 # Rebuild initramfs

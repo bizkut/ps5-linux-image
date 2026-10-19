@@ -49,11 +49,12 @@ PS5_MW=/tmp/ps5-linux-mwifiex
 NXP_MW=/tmp/nxp-mwifiex
 rm -rf "$PS5_MW" "$NXP_MW"
 git clone "$MWIFIEX_REPO" "$PS5_MW"
-git -C "$PS5_MW" checkout "$MWIFIEX_REF" 2>/dev/null || true
+git -C "$PS5_MW" checkout "$MWIFIEX_REF"
 git clone --depth 1 --branch "$MWIFIEX_NXP_REF" "$MWIFIEX_NXP_REPO" "$NXP_MW"
 git -C "$NXP_MW" apply "$PS5_MW/ps5-iw620.patch"
 git -C "$NXP_MW" apply "$PS5_MW/ps5-iw620-cmd-timeout-recover.patch"
 git -C "$NXP_MW" apply "$PS5_MW/ps5-iw620-kernel71-compat.patch"
+git -C "$NXP_MW" apply "$PS5_MW/ps5-iw620-kernel72-compat.patch"
 
 # Build against the kernel source we just built (out-of-tree build needs
 # the in-tree build dir, not just headers; same as install-extmod-build).
